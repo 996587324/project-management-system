@@ -63,7 +63,12 @@
                   placeholder="文件名称"
                   @keyup.enter="handleSearch"
                 />
-                <ElUpload :http-request="handleUpload" :show-file-list="false" multiple>
+                <ElUpload
+                  v-auth="'Upload'"
+                  :http-request="handleUpload"
+                  :show-file-list="false"
+                  multiple
+                >
                   <ElButton type="primary" :disabled="!filters.projectId">上传文件</ElButton>
                 </ElUpload>
                 <ElButton @click="handleSearch">查询</ElButton>
@@ -137,13 +142,17 @@
         </div>
 
         <ElEmpty v-else :description="preview.message || '暂不支持该文件在线预览'">
-          <ElButton type="primary" @click="openDownload(preview.row)">下载文件</ElButton>
+          <ElButton v-auth="'Download'" type="primary" @click="openDownload(preview.row)"
+            >下载文件</ElButton
+          >
         </ElEmpty>
       </div>
 
       <template #footer>
         <ElButton @click="preview.visible = false">关闭</ElButton>
-        <ElButton type="primary" @click="openDownload(preview.row)">下载</ElButton>
+        <ElButton v-auth="'Download'" type="primary" @click="openDownload(preview.row)"
+          >下载</ElButton
+        >
       </template>
     </ElDialog>
   </div>
@@ -235,7 +244,9 @@
     row: undefined
   })
 
-  const currentSheet = computed(() => preview.sheets.find((item) => item.name === preview.activeSheet))
+  const currentSheet = computed(() =>
+    preview.sheets.find((item) => item.name === preview.activeSheet)
+  )
   const currentSheetRows = computed(() => currentSheet.value?.rows ?? [])
   const currentSheetTotalRows = computed(() => currentSheet.value?.totalRows ?? 0)
 
@@ -287,9 +298,15 @@
           formatter: (row: FileItem) =>
             h(ArtButtonMore, {
               list: [
-                { key: 'preview', label: '预览', icon: 'ri:eye-line' },
-                { key: 'download', label: '下载', icon: 'ri:download-2-line' },
-                { key: 'delete', label: '删除', icon: 'ri:delete-bin-4-line', color: '#f56c6c' }
+                { key: 'preview', label: '预览', icon: 'ri:eye-line', auth: 'Preview' },
+                { key: 'download', label: '下载', icon: 'ri:download-2-line', auth: 'Download' },
+                {
+                  key: 'delete',
+                  label: '删除',
+                  icon: 'ri:delete-bin-4-line',
+                  color: '#f56c6c',
+                  auth: 'Delete'
+                }
               ],
               onClick: (item: ButtonMoreItem) => handleAction(item, row)
             })
@@ -300,7 +317,9 @@
 
   const loadProjects = async () => {
     const projectList = await fetchProjectList()
-    const fileCounts = await fetchProjectFileCounts(projectList.map((project) => project.projectName))
+    const fileCounts = await fetchProjectFileCounts(
+      projectList.map((project) => project.projectName)
+    )
     projects.value = projectList.map((project) => ({
       ...project,
       fileCount: fileCounts[project.projectName] ?? 0
@@ -326,7 +345,9 @@
   const handleUpload = async (options: UploadRequestOptions) => {
     if (!filters.projectId) {
       ElMessage.warning('请先选择项目')
-      options.onError(new Error('Please select a project first') as Parameters<typeof options.onError>[0])
+      options.onError(
+        new Error('Please select a project first') as Parameters<typeof options.onError>[0]
+      )
       return
     }
 
@@ -334,7 +355,9 @@
       const currentProject = projects.value.find((project) => project.id === filters.projectId)
       if (!currentProject) {
         ElMessage.warning('请先选择项目')
-        options.onError(new Error('Please select a project first') as Parameters<typeof options.onError>[0])
+        options.onError(
+          new Error('Please select a project first') as Parameters<typeof options.onError>[0]
+        )
         return
       }
 
@@ -367,7 +390,9 @@
     }
 
     if (item.key === 'delete') {
-      await ElMessageBox.confirm(`确定删除文件“${row.fileName}”吗？`, '删除确认', { type: 'warning' })
+      await ElMessageBox.confirm(`确定删除文件“${row.fileName}”吗？`, '删除确认', {
+        type: 'warning'
+      })
       await deleteProjectFile(row.id)
       ElMessage.success('删除成功')
       refreshRemove()
@@ -454,12 +479,16 @@
 
   const normalizeSheetRows = (rows: string[][]) => {
     const maxColumns = Math.max(0, ...rows.map((row) => row.length))
-    return rows.map((row) => Array.from({ length: maxColumns }, (_, index) => String(row[index] ?? '')))
+    return rows.map((row) =>
+      Array.from({ length: maxColumns }, (_, index) => String(row[index] ?? ''))
+    )
   }
 
   const sanitizeHtml = (html: string) => {
     const documentFragment = new DOMParser().parseFromString(html, 'text/html')
-    documentFragment.querySelectorAll('script, style, iframe, object, embed').forEach((node) => node.remove())
+    documentFragment
+      .querySelectorAll('script, style, iframe, object, embed')
+      .forEach((node) => node.remove())
     documentFragment.body.querySelectorAll('*').forEach((node) => {
       Array.from(node.attributes).forEach((attr) => {
         if (/^on/i.test(attr.name) || /^javascript:/i.test(attr.value)) {
@@ -502,15 +531,17 @@
       grid-template-columns: 280px minmax(0, 1fr);
       gap: 12px;
       align-items: stretch;
-      transition: grid-template-columns 0.2s ease, gap 0.2s ease;
+      transition:
+        grid-template-columns 0.2s ease,
+        gap 0.2s ease;
 
       &.is-folder-collapsed {
         grid-template-columns: 0 minmax(0, 1fr);
         gap: 0;
 
         .folder-pane {
-          opacity: 0;
           pointer-events: none;
+          opacity: 0;
         }
       }
     }
@@ -531,15 +562,15 @@
 
     .folder-card-header {
       display: flex;
+      gap: 8px;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
       min-width: 0;
       font-weight: 600;
     }
   }
 
-  @media (max-width: 768px) {
+  @media (width <= 768px) {
     .file-page {
       .file-layout,
       .file-layout.is-folder-collapsed {
@@ -560,9 +591,9 @@
   .pdf-frame {
     width: 100%;
     height: 68vh;
+    background: #fff;
     border: 1px solid var(--art-border-color);
     border-radius: 6px;
-    background: #fff;
   }
 
   .word-preview {
@@ -593,9 +624,9 @@
   }
 
   .sheet-preview {
-    height: 68vh;
     display: flex;
     flex-direction: column;
+    height: 68vh;
   }
 
   .sheet-tabs {
@@ -605,16 +636,16 @@
   .sheet-table-wrap {
     flex: 1;
     overflow: auto;
+    background: #fff;
     border: 1px solid var(--art-border-color);
     border-radius: 6px;
-    background: #fff;
   }
 
   .sheet-table {
     width: max-content;
     min-width: 100%;
-    border-collapse: collapse;
     font-size: 13px;
+    border-collapse: collapse;
 
     th,
     td {
@@ -640,7 +671,7 @@
   .preview-tip {
     flex: none;
     margin: 10px 0 0;
-    color: var(--art-gray-600);
     font-size: 13px;
+    color: var(--art-gray-600);
   }
 </style>

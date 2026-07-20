@@ -1,0 +1,1 @@
+import{ei as i,bL as o}from"./index-CWcD4ZQa.js";function n(o,n,r){return void 0===r&&(r=n,n=void 0),void 0!==r&&(r=(r=i(r))==r?r:0),void 0!==n&&(n=(n=i(n))==n?n:0),function(i,o,n){return i==i&&(void 0!==n&&(i=i<=n?i:n),void 0!==o&&(i=i>=o?i:o)),i}(i(o),n,r)}function r(i){return o(i,5)}export{r as a,n as c};

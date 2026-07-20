@@ -82,7 +82,6 @@
                 {{ $t('login.btnText') }}
               </ElButton>
             </div>
-
           </ElForm>
         </div>
       </div>
@@ -193,12 +192,11 @@
         userName: username,
         password
       })
+      console.log('Login successful, token:', token, 'refreshToken:', refreshToken)
       // 验证token
       if (!token) {
         throw new Error('Login failed - no token received')
       }
-      console.log('Login successful, token received:', token)
-      console.log('Refresh token received:', refreshToken)  
 
       // 存储 token 和登录状态
       userStore.setToken(token, refreshToken)
@@ -215,6 +213,7 @@
     } catch (error) {
       // 处理 HttpError
       if (error instanceof HttpError) {
+        return
       } else {
         // 处理非 HttpError
         // ElMessage.error('登录失败，请稍后重试')

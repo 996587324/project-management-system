@@ -9,7 +9,20 @@
       >
         <template #left>
           <ElSpace wrap>
-            <ElButton type="primary" @click="openDialog('add')">新增项目</ElButton>
+            <ElButton v-auth="'Create'" type="primary" @click="openDialog('add')"
+              >新增项目</ElButton
+            >
+            <ElButton v-auth="'Import'" :loading="importing" @click="openImportPicker"
+              >批量导入</ElButton
+            >
+            <ElButton v-auth="'Template'" @click="downloadImportTemplate">下载模板</ElButton>
+            <input
+              ref="importInputRef"
+              type="file"
+              accept=".csv,.xls,.xlsx"
+              style="display: none"
+              @change="handleImportFileChange"
+            />
             <ElInput
               v-model="filters.projectName"
               clearable
@@ -227,6 +240,33 @@
         <ElButton type="primary" :loading="saving" @click="submitProject">保存</ElButton>
       </template>
     </ElDialog>
+
+    <ElDialog v-model="importDialogVisible" title="批量导入结果" width="820px" align-center>
+      <ElAlert
+        v-if="importResult"
+        :title="importResult.message"
+        :type="importResult.failedCount > 0 ? 'warning' : 'success'"
+        show-icon
+        :closable="false"
+        class="import-result-alert"
+      />
+      <ElTable v-if="importResult" :data="importResult.rows" max-height="420" size="small" border>
+        <ElTableColumn prop="rowIndex" label="行号" width="80" />
+        <ElTableColumn prop="projectCode" label="项目编号" min-width="130" show-overflow-tooltip />
+        <ElTableColumn prop="projectName" label="项目名称" min-width="160" show-overflow-tooltip />
+        <ElTableColumn label="状态" width="90">
+          <template #default="{ row }">
+            <ElTag :type="row.success ? 'success' : 'danger'" size="small">
+              {{ row.success ? '成功' : '失败' }}
+            </ElTag>
+          </template>
+        </ElTableColumn>
+        <ElTableColumn prop="message" label="说明" min-width="220" show-overflow-tooltip />
+      </ElTable>
+      <template #footer>
+        <ElButton type="primary" @click="importDialogVisible = false">知道了</ElButton>
+      </template>
+    </ElDialog>
   </div>
 </template>
 
@@ -238,10 +278,13 @@
     deleteProject,
     fetchProjectPage,
     fetchProjectStages,
+    getProjectImportTemplateUrl,
+    importProjects,
     updateProject
   } from '@/api/project-manage'
   import { fetchGetUserList } from '@/api/system-manage'
   import { useTable } from '@/hooks/core/useTable'
+  import { useUserStore } from '@/store/modules/user'
   import ArtButtonMore, { ButtonMoreItem } from '@/components/core/forms/art-button-more/index.vue'
   import {
     ElMessage,
@@ -263,6 +306,11 @@
   const formRef = ref<FormInstance>()
   const managerLoading = ref(false)
   const managerOptions = ref<Api.SystemManage.UserListItem[]>([])
+  const importing = ref(false)
+  const importDialogVisible = ref(false)
+  const importInputRef = ref<HTMLInputElement>()
+  const importResult = ref<Api.ProjectManage.ProjectImportResult>()
+  const userStore = useUserStore()
 
   const filters = reactive<Api.ProjectManage.ProjectQueryParams>({
     projectName: undefined,
@@ -335,24 +383,18 @@
       apiFn: fetchProjectPage,
       apiParams: { current: 1, size: 20 },
       columnsFactory: () => [
-        { prop: 'projectCode', label: '项目编号', minWidth: 130, showOverflowTooltip: true },
-        { prop: 'projectName', label: '项目名称', minWidth: 180, showOverflowTooltip: true },
+        { prop: 'projectCode', label: '项目编号', minWidth: 180, showOverflowTooltip: true },
+        { prop: 'projectName', label: '项目名称', minWidth: 240, showOverflowTooltip: true },
         { prop: 'projectType', label: '类型', width: 100 },
         {
           prop: 'projectStatus',
           label: '状态',
           width: 100,
           formatter: (row: ProjectItem) => {
-            const item = statusOptions.find((x) => x.value === row.projectStatus) || statusOptions[0]
+            const item =
+              statusOptions.find((x) => x.value === row.projectStatus) || statusOptions[0]
             return h(ElTag, { type: item.type }, () => item.label)
           }
-        },
-        {
-          prop: 'projectStage',
-          label: '阶段',
-          width: 100,
-          formatter: (row: ProjectItem) =>
-            stageOptions.value.find((x) => x.value === row.projectStage)?.label || '-'
         },
         {
           prop: 'priority',
@@ -363,7 +405,7 @@
         {
           prop: 'progress',
           label: '进度',
-          width: 170,
+          width: 240,
           formatter: (row: ProjectItem) =>
             h(ElProgress, { percentage: Number(row.progress || 0), strokeWidth: 8 })
         },
@@ -375,13 +417,13 @@
           formatter: (row: ProjectItem) => row.managerName || row.managerId || '-'
         },
         { prop: 'customerName', label: '客户', minWidth: 120, showOverflowTooltip: true },
-        { prop: 'contractCode', label: '合同编号', minWidth: 130, showOverflowTooltip: true },
+        { prop: 'contractCode', label: '合同编号', minWidth: 180, showOverflowTooltip: true },
         { prop: 'projectTag', label: '项目标签', minWidth: 120, showOverflowTooltip: true },
         { prop: 'taskCount', label: '任务数', width: 90 },
         { prop: 'fileCount', label: '文件数', width: 90 },
         { prop: 'remark', label: '备注', minWidth: 180, showOverflowTooltip: true },
-        { prop: 'startTime', label: '开始时间', width: 160 },
-        { prop: 'endTime', label: '结束时间', width: 160 },
+        { prop: 'startTime', label: '开始时间', width: 200 },
+        { prop: 'endTime', label: '结束时间', width: 200 },
         {
           prop: 'operation',
           label: '操作',
@@ -390,10 +432,26 @@
           formatter: (row: ProjectItem) =>
             h(ArtButtonMore, {
               list: [
-                { key: 'edit', label: '编辑', icon: 'ri:edit-2-line' },
-                { key: 'running', label: '设为进行中', icon: 'ri:play-circle-line' },
-                { key: 'finished', label: '设为完成', icon: 'ri:checkbox-circle-line' },
-                { key: 'delete', label: '删除', icon: 'ri:delete-bin-4-line', color: '#f56c6c' }
+                { key: 'edit', label: '编辑', icon: 'ri:edit-2-line', auth: 'Update' },
+                {
+                  key: 'running',
+                  label: '设为进行中',
+                  icon: 'ri:play-circle-line',
+                  auth: 'Status'
+                },
+                {
+                  key: 'finished',
+                  label: '设为完成',
+                  icon: 'ri:checkbox-circle-line',
+                  auth: 'Status'
+                },
+                {
+                  key: 'delete',
+                  label: '删除',
+                  icon: 'ri:delete-bin-4-line',
+                  color: '#f56c6c',
+                  auth: 'Delete'
+                }
               ],
               onClick: (item: ButtonMoreItem) => handleAction(item, row)
             })
@@ -448,7 +506,9 @@
   }
 
   const handleManagerChange = (value: string) => {
-    const selected = managerOptions.value.find((item) => String(item.userId || item.id) === String(value))
+    const selected = managerOptions.value.find(
+      (item) => String(item.userId || item.id) === String(value)
+    )
     form.managerUserId = value
     form.managerName = selected ? String(selected.nickName || selected.userName || '') : ''
   }
@@ -509,6 +569,50 @@
     }
   }
 
+  const openImportPicker = () => {
+    importInputRef.value?.click()
+  }
+
+  const downloadImportTemplate = () => {
+    const link = document.createElement('a')
+    link.href = getProjectImportTemplateUrl()
+    link.download = '项目批量导入模板.csv'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleImportFileChange = async (event: Event) => {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    input.value = ''
+    if (!file) return
+
+    if (!/\.(csv|xls|xlsx)$/i.test(file.name)) {
+      ElMessage.warning('请选择 CSV、XLS 或 XLSX 文件')
+      return
+    }
+
+    importing.value = true
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      if (userStore.info?.userId) formData.append('userId', String(userStore.info.userId))
+
+      const result = await importProjects(formData)
+      importResult.value = result
+      importDialogVisible.value = true
+      await refreshCreate()
+      if (result.failedCount > 0) {
+        ElMessage.warning(result.message)
+      } else {
+        ElMessage.success(result.message)
+      }
+    } finally {
+      importing.value = false
+    }
+  }
+
   onMounted(() => {
     loadProjectStages()
     loadManagerOptions()
@@ -531,7 +635,6 @@
       await ElMessageBox.confirm(`确定删除项目“${row.projectName}”吗？`, '删除确认', {
         type: 'warning'
       })
-      console.log('Deleting project with ID:', row.id) // Debugging line
       await deleteProject(row.id)
       ElMessage.success('删除成功')
       await refreshRemove()

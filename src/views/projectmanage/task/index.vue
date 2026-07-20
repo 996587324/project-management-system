@@ -12,19 +12,45 @@
             @change="handleSelectedProjectChange"
           >
             <ElOption
-              v-for="item in projects"
+              v-for="item in projectOptions"
               :key="String(item.id)"
               :label="formatProjectLabel(item)"
               :value="item.projectName"
             />
           </ElSelect>
-          <ElButton type="primary" :disabled="!projects.length" @click="openDialog('add')">新增任务</ElButton>
+          <ElSelect
+            v-model="selectedManagerName"
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            :remote-method="searchExecutors"
+            :loading="executorLoading"
+            placeholder="项目负责人"
+            style="width: 180px"
+            @change="handleSelectedManagerChange"
+            @visible-change="(visible: boolean) => visible && loadExecutorOptions()"
+          >
+            <ElOption
+              v-for="item in executorOptions"
+              :key="getManagerFilterValue(item)"
+              :label="formatExecutorLabel(item)"
+              :value="getManagerFilterValue(item)"
+            />
+          </ElSelect>
+          <ElButton
+            v-auth="'Create'"
+            type="primary"
+            :disabled="!projects.length"
+            @click="openDialog('add')"
+            >新增任务</ElButton
+          >
           <ElButton :loading="loading" @click="refreshData">刷新</ElButton>
         </ElSpace>
         <ElSegmented v-model="viewMode" :options="viewOptions" />
       </div>
 
-      <ElEmpty v-if="!projects.length" description="暂无可用项目，请先在项目管理中新增项目" />
+      <ElEmpty v-if="!projects.length || !visibleProjects.length" :description="emptyDescription" />
 
       <template v-else>
         <div v-if="viewMode === 'board'" class="board">
@@ -37,7 +63,9 @@
           >
             <header>
               <span>{{ column.title }}</span>
-              <ElTag round size="small" :type="column.type">{{ groupedTasks[column.status]?.length || 0 }}</ElTag>
+              <ElTag round size="small" :type="column.type">{{
+                groupedTasks[column.status]?.length || 0
+              }}</ElTag>
             </header>
             <div class="task-list">
               <article
@@ -66,11 +94,20 @@
             <span>结束时间</span>
             <span>时间轴</span>
           </div>
-          <div v-for="row in ganttRows" :key="row.rowKey" class="gantt-row" :class="{ 'is-project': row.type === 'project' }">
+          <div
+            v-for="row in ganttRows"
+            :key="row.rowKey"
+            class="gantt-row"
+            :class="{ 'is-project': row.type === 'project' }"
+          >
             <div
               class="gantt-name"
               :style="{ paddingLeft: `${12 + (row.level - 1) * 18}px` }"
-              @click="row.type === 'task' && row.task ? openDialog('edit', row.task) : selectProjectNode(row.projectName)"
+              @click="
+                row.type === 'task' && row.task
+                  ? openDialog('edit', row.task)
+                  : selectProjectNode(row.projectName)
+              "
             >
               <button
                 v-if="row.type === 'project'"
@@ -94,10 +131,20 @@
       </template>
     </ElCard>
 
-    <ElDialog v-model="dialogVisible" :title="dialogType === 'add' ? '新增任务' : '编辑任务'" width="680px" align-center>
+    <ElDialog
+      v-model="dialogVisible"
+      :title="dialogType === 'add' ? '新增任务' : '编辑任务'"
+      width="680px"
+      align-center
+    >
       <ElForm ref="formRef" :model="form" :rules="rules" label-width="92px">
         <ElFormItem label="所属项目" prop="projectId">
-          <ElSelect v-model="form.projectId" filterable style="width: 100%" @change="handleFormProjectChange">
+          <ElSelect
+            v-model="form.projectId"
+            filterable
+            style="width: 100%"
+            @change="handleFormProjectChange"
+          >
             <ElOption
               v-for="item in projects"
               :key="String(item.id)"
@@ -149,12 +196,22 @@
         <ElRow :gutter="16">
           <ElCol :span="12">
             <ElFormItem label="开始时间" prop="startTime">
-              <ElDatePicker v-model="form.startTime" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+              <ElDatePicker
+                v-model="form.startTime"
+                type="date"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+              />
             </ElFormItem>
           </ElCol>
           <ElCol :span="12">
             <ElFormItem label="结束时间" prop="endTime">
-              <ElDatePicker v-model="form.endTime" type="date" value-format="YYYY-MM-DD" style="width: 100%" />
+              <ElDatePicker
+                v-model="form.endTime"
+                type="date"
+                value-format="YYYY-MM-DD"
+                style="width: 100%"
+              />
             </ElFormItem>
           </ElCol>
         </ElRow>
@@ -184,9 +241,22 @@
         </ElFormItem>
       </ElForm>
       <template #footer>
-        <ElButton v-if="dialogType === 'edit'" type="danger" plain @click="removeTask">删除</ElButton>
+        <ElButton
+          v-if="dialogType === 'edit'"
+          v-auth="'Delete'"
+          type="danger"
+          plain
+          @click="removeTask"
+          >删除</ElButton
+        >
         <ElButton @click="dialogVisible = false">取消</ElButton>
-        <ElButton type="primary" :loading="saving" @click="submitTask">保存</ElButton>
+        <ElButton
+          v-auth="dialogType === 'add' ? 'Create' : 'Update'"
+          type="primary"
+          :loading="saving"
+          @click="submitTask"
+          >保存</ElButton
+        >
       </template>
     </ElDialog>
   </div>
@@ -226,6 +296,7 @@
   const tasks = ref<TaskItem[]>([])
   const taskTypeOptions = ref<Api.ProjectManage.TaskTypeOption[]>([])
   const selectedProjectName = ref<string>()
+  const selectedManagerName = ref<string>()
   const collapsedProjectNames = ref<Set<string>>(new Set())
   const viewMode = ref<'board' | 'gantt'>('board')
   const dialogVisible = ref(false)
@@ -279,21 +350,25 @@
 
   const flatTasks = computed(() => flattenTasks(tasks.value))
 
+  const visibleProjectNames = computed(
+    () => new Set(visibleProjects.value.map((project) => project.projectName))
+  )
+
+  const displayedTasks = computed(() =>
+    flatTasks.value.filter((task) =>
+      visibleProjectNames.value.has(String(task.projectName || task.projectId || ''))
+    )
+  )
+
   const groupedTasks = computed(() => {
     const groups: Record<number, TaskItem[]> = { 1: [], 2: [], 3: [], 4: [] }
-    flatTasks.value.forEach((task) => {
+    displayedTasks.value.forEach((task) => {
       const status = task.taskStatus || 1
       if (!groups[status]) groups[status] = []
       groups[status].push(task)
     })
     return groups
   })
-
-  const visibleProjects = computed(() =>
-    selectedProjectName.value
-      ? projects.value.filter((project) => project.projectName === selectedProjectName.value)
-      : projects.value
-  )
 
   const tasksByProject = computed(() => {
     const groups: Record<string, TaskItem[]> = {}
@@ -304,6 +379,26 @@
       groups[projectName].push(task)
     })
     return groups
+  })
+
+  const projectOptions = computed(() => {
+    if (!selectedManagerName.value) return projects.value
+    const managerName = normalizeName(selectedManagerName.value)
+    return projects.value.filter(
+      (project) => normalizeName(project.managerName || '') === managerName
+    )
+  })
+
+  const visibleProjects = computed(() =>
+    selectedProjectName.value
+      ? projectOptions.value.filter((project) => project.projectName === selectedProjectName.value)
+      : projectOptions.value
+  )
+
+  const emptyDescription = computed(() => {
+    if (!projects.value.length) return '暂无可用项目，请先在项目管理中新增项目'
+    if (selectedManagerName.value && !projectOptions.value.length) return '该负责人暂无相关项目'
+    return '暂无可用项目'
   })
 
   const ganttRows = computed<GanttRow[]>(() =>
@@ -364,10 +459,13 @@
       selectedProjectName.value = undefined
       tasks.value = []
     }
+    ensureSelectedProjectVisible()
   }
 
   const loadTasks = async (projectName = selectedProjectName.value) => {
-    tasks.value = (await fetchTaskTree(projectName ? { projectId: projectName } : undefined)) as TaskItem[]
+    tasks.value = (await fetchTaskTree({
+      projectId: projectName || undefined
+    })) as TaskItem[]
   }
 
   const loadTaskTypeOptions = async () => {
@@ -382,6 +480,9 @@
 
   const getExecutorValue = (item: Api.SystemManage.UserListItem) =>
     String(item.userName || item.userId || item.id || '')
+
+  const getManagerFilterValue = (item: Api.SystemManage.UserListItem) =>
+    String(item.nickName || item.userName || item.userId || item.id || '')
 
   const formatExecutorLabel = (item: Api.SystemManage.UserListItem) => {
     const name = item.nickName || item.userName || item.userId || item.id || '-'
@@ -436,6 +537,23 @@
     await loadTasks()
   }
 
+  const handleSelectedManagerChange = async (value?: string) => {
+    selectedManagerName.value = value || undefined
+    ensureSelectedProjectVisible()
+    await loadTasks()
+  }
+
+  const ensureSelectedProjectVisible = () => {
+    if (
+      selectedProjectName.value &&
+      !projectOptions.value.some((project) => project.projectName === selectedProjectName.value)
+    ) {
+      selectedProjectName.value = undefined
+    }
+  }
+
+  const normalizeName = (value: string) => value.trim().toLowerCase()
+
   const handleFormProjectChange = async (value?: string) => {
     form.parentId = 0
     selectedProjectName.value = value || undefined
@@ -443,7 +561,10 @@
   }
 
   const flattenTasks = (items: TaskItem[], level = 1): TaskItem[] =>
-    items.flatMap((item) => [{ ...item, level }, ...flattenTasks((item.children || []) as TaskItem[], level + 1)])
+    items.flatMap((item) => [
+      { ...item, level },
+      ...flattenTasks((item.children || []) as TaskItem[], level + 1)
+    ])
 
   const openDialog = async (type: 'add' | 'edit', row?: TaskItem) => {
     if (!projects.value.length) {
@@ -462,7 +583,9 @@
         parentId: 0,
         executorId: currentUserExecutorId.value
       },
-      row ? { ...row, projectId: String(row.projectId), executorId: String(row.executorId || '') } : {}
+      row
+        ? { ...row, projectId: String(row.projectId), executorId: String(row.executorId || '') }
+        : {}
     )
     if (!form.taskType && taskTypeOptions.value.length) {
       form.taskType = taskTypeOptions.value[0].value
@@ -477,7 +600,11 @@
     await formRef.value.validate()
     saving.value = true
     try {
-      const params = { ...form, projectId: String(form.projectId), executorId: String(form.executorId) }
+      const params = {
+        ...form,
+        projectId: String(form.projectId),
+        executorId: String(form.executorId)
+      }
       if (dialogType.value === 'add') {
         await createTask(params)
       } else {
@@ -493,7 +620,9 @@
   }
 
   const removeTask = async () => {
-    await ElMessageBox.confirm(`确定删除任务“${form.taskName}”及其子任务吗？`, '删除确认', { type: 'warning' })
+    await ElMessageBox.confirm(`确定删除任务“${form.taskName}”及其子任务吗？`, '删除确认', {
+      type: 'warning'
+    })
     await deleteTask(form.id!)
     ElMessage.success('删除成功')
     dialogVisible.value = false
@@ -526,7 +655,8 @@
   const formatProjectLabel = (project: Api.ProjectManage.ProjectItem) =>
     project.projectCode ? `${project.projectName}（${project.projectCode}）` : project.projectName
 
-  const priorityText = (priority: number) => ({ 1: '高优先级', 2: '中优先级', 3: '低优先级' })[priority] || '中优先级'
+  const priorityText = (priority: number) =>
+    ({ 1: '高优先级', 2: '中优先级', 3: '低优先级' })[priority] || '中优先级'
   const formatDate = (value?: string) => (value ? value.slice(0, 10) : '-')
 
   const timeRange = computed(() => {
@@ -563,9 +693,9 @@
   .task-page {
     .toolbar {
       display: flex;
+      gap: 12px;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
       margin-bottom: 16px;
     }
 
@@ -612,9 +742,9 @@
 
     .task-meta {
       display: flex;
+      gap: 8px;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
       margin-bottom: 8px;
       font-size: 12px;
       color: var(--el-text-color-secondary);

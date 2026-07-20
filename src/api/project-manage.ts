@@ -50,6 +50,23 @@ type RawProjectStageOption = Api.ProjectManage.ProjectStageOption & {
   Sort?: number
 }
 
+type RawProjectImportRow = Api.ProjectManage.ProjectImportRow & {
+  RowIndex?: number
+  Success?: boolean
+  ProjectId?: number
+  ProjectCode?: string
+  ProjectName?: string
+  Message?: string
+}
+
+type RawProjectImportResult = Api.ProjectManage.ProjectImportResult & {
+  Total?: number
+  CreatedCount?: number
+  FailedCount?: number
+  Message?: string
+  Rows?: RawProjectImportRow[]
+}
+
 type RawTaskParentOption = Api.ProjectManage.TaskParentOption & {
   Id?: number
   Label?: string
@@ -153,6 +170,29 @@ function normalizeProjectStage(item: RawProjectStageOption): Api.ProjectManage.P
   }
 }
 
+function normalizeProjectImportRow(item: RawProjectImportRow): Api.ProjectManage.ProjectImportRow {
+  return {
+    rowIndex: Number(item.rowIndex ?? item.RowIndex ?? 0),
+    success: Boolean(item.success ?? item.Success ?? false),
+    projectId: item.projectId ?? item.ProjectId,
+    projectCode: item.projectCode ?? item.ProjectCode ?? '',
+    projectName: item.projectName ?? item.ProjectName ?? '',
+    message: item.message ?? item.Message ?? ''
+  }
+}
+
+function normalizeProjectImportResult(
+  data: RawProjectImportResult
+): Api.ProjectManage.ProjectImportResult {
+  return {
+    total: Number(data.total ?? data.Total ?? 0),
+    createdCount: Number(data.createdCount ?? data.CreatedCount ?? 0),
+    failedCount: Number(data.failedCount ?? data.FailedCount ?? 0),
+    message: data.message ?? data.Message ?? '',
+    rows: (data.rows ?? data.Rows ?? []).map(normalizeProjectImportRow)
+  }
+}
+
 function normalizeTaskParentOption(item: RawTaskParentOption): Api.ProjectManage.TaskParentOption {
   return {
     id: Number(item.id ?? item.Id ?? 0),
@@ -171,7 +211,9 @@ function normalizeTaskTypeOption(item: RawTaskTypeOption): Api.ProjectManage.Tas
   }
 }
 
-function normalizeProjectStatusStat(item: RawProjectStatusStat): Api.ProjectManage.ProjectStatusStat {
+function normalizeProjectStatusStat(
+  item: RawProjectStatusStat
+): Api.ProjectManage.ProjectStatusStat {
   return {
     status: Number(item.status ?? item.Status ?? 0),
     label: item.label ?? item.Label ?? '',
@@ -248,6 +290,21 @@ export function createProject(params: Api.ProjectManage.ProjectSaveParams) {
   })
 }
 
+export async function importProjects(formData: FormData) {
+  const data = await request.request<RawProjectImportResult>({
+    url: '/api/ProjectManage/projects/import',
+    method: 'POST',
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+  return normalizeProjectImportResult(data)
+}
+
+export function getProjectImportTemplateUrl() {
+  const baseUrl = import.meta.env.VITE_API_URL || ''
+  return `${baseUrl.replace(/\/$/, '')}/api/ProjectManage/projects/import-template`
+}
+
 export function updateProject(params: Api.ProjectManage.ProjectSaveParams) {
   return request.post({
     url: `/api/ProjectManage/projects/${params.id}`,
@@ -263,12 +320,10 @@ export function changeProjectStatus(id: number | string, status: number) {
 }
 
 export function deleteProject(id: number | string) {
-  var res =  request.post({
+  return request.post({
     url: '/api/ProjectManage/projects/delete',
     params: { id }
   })
-  console.log('Delete project response:', res) // Debugging line
-  return res
 }
 
 export function fetchTaskPage(params: Api.ProjectManage.TaskQueryParams) {
@@ -278,7 +333,10 @@ export function fetchTaskPage(params: Api.ProjectManage.TaskQueryParams) {
   })
 }
 
-export async function fetchTaskTree(params?: { projectId?: number | string }) {
+export async function fetchTaskTree(params?: {
+  projectId?: number | string
+  executorId?: number | string
+}) {
   const list = await request.get<RawTaskItem[]>({
     url: '/api/ProjectManage/tasks/tree',
     params
@@ -286,7 +344,10 @@ export async function fetchTaskTree(params?: { projectId?: number | string }) {
   return list.map(normalizeTask)
 }
 
-export async function fetchTaskParentOptions(params?: { projectId?: number | string; currentId?: number | string }) {
+export async function fetchTaskParentOptions(params?: {
+  projectId?: number | string
+  currentId?: number | string
+}) {
   const list = await request.get<RawTaskParentOption[]>({
     url: '/api/ProjectManage/tasks/parent-options',
     params

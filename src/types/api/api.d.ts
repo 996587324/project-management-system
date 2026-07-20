@@ -308,10 +308,39 @@ declare namespace Api {
     }
 
     type ProjectSaveParams = Partial<ProjectItem> &
-      Pick<ProjectItem, 'projectCode' | 'projectName' | 'projectType' | 'startTime' | 'endTime' | 'managerId'>
+      Pick<
+        ProjectItem,
+        'projectCode' | 'projectName' | 'projectType' | 'startTime' | 'endTime' | 'managerId'
+      >
+
+    interface ProjectImportRow {
+      rowIndex: number
+      success: boolean
+      projectId?: number
+      projectCode: string
+      projectName: string
+      message: string
+    }
+
+    interface ProjectImportResult {
+      total: number
+      createdCount: number
+      failedCount: number
+      message: string
+      rows: ProjectImportRow[]
+    }
 
     type ProjectQueryParams = Partial<
-      Pick<ProjectItem, 'projectName' | 'projectCode' | 'projectType' | 'projectStatus' | 'projectStage' | 'managerId' | 'managerUserId'> &
+      Pick<
+        ProjectItem,
+        | 'projectName'
+        | 'projectCode'
+        | 'projectType'
+        | 'projectStatus'
+        | 'projectStage'
+        | 'managerId'
+        | 'managerUserId'
+      > &
         Api.Common.CommonSearchParams & {
           startTime?: string
           endTime?: string
@@ -353,7 +382,10 @@ declare namespace Api {
     }
 
     type TaskSaveParams = Partial<TaskItem> &
-      Pick<TaskItem, 'projectId' | 'parentId' | 'taskName' | 'progress' | 'executorId' | 'startTime' | 'endTime'>
+      Pick<
+        TaskItem,
+        'projectId' | 'parentId' | 'taskName' | 'progress' | 'executorId' | 'startTime' | 'endTime'
+      >
 
     type TaskQueryParams = Partial<
       Pick<TaskItem, 'projectId' | 'parentId' | 'taskStatus' | 'executorId' | 'taskName'> &
@@ -374,7 +406,8 @@ declare namespace Api {
     }
 
     type FileQueryParams = Partial<
-      Pick<FileItem, 'projectId' | 'taskId' | 'folderType' | 'fileName'> & Api.Common.CommonSearchParams
+      Pick<FileItem, 'projectId' | 'taskId' | 'folderType' | 'fileName'> &
+        Api.Common.CommonSearchParams
     >
 
     interface DashboardStats {
@@ -408,6 +441,137 @@ declare namespace Api {
       runningProjects: number
       finishedProjects: number
       totalProjects: number
+    }
+  }
+
+  namespace Agent {
+    type ConversationList = Api.Common.PaginatedResponse<Conversation>
+
+    interface StartRequest {
+      userId?: number | string
+      title?: string
+      scopeProjectName?: string
+      mode?: string
+    }
+
+    interface SendRequest {
+      conversationId?: number
+      message: string
+      userId?: number | string
+      scopeProjectName?: string
+      mode?: string
+      autoExecute?: boolean
+      attachmentType?: 'project-csv'
+      attachmentName?: string
+      attachmentContent?: string
+    }
+
+    interface StreamProgress {
+      stage: string
+      message: string
+      conversationId?: number
+    }
+
+    interface ConfirmRequest {
+      toolCallId?: number
+      userId?: number | string
+      remark?: string
+    }
+
+    interface Conversation {
+      id: number
+      userId: string
+      title: string
+      scopeProjectName?: string
+      mode: string
+      status: string
+      createTime: string
+      updateTime?: string
+    }
+
+    interface Message {
+      id: number
+      conversationId: number
+      role: 'user' | 'assistant' | string
+      content: string
+      createTime: string
+    }
+
+    interface PlanStep {
+      sort: number
+      title: string
+      description: string
+      toolName: string
+      requiresConfirmation: boolean
+    }
+
+    interface ToolCall {
+      id: number
+      conversationId: number
+      toolName: string
+      toolTitle: string
+      requestJson: string
+      responseJson: string
+      status: string
+      requiresConfirmation: boolean
+      confirmed: boolean
+      createTime: string
+    }
+
+    interface ToolDefinition {
+      name: string
+      title: string
+      description: string
+      isWriteAction: boolean
+      requiresConfirmation: boolean
+    }
+
+    interface Response {
+      conversationId: number
+      reply: string
+      plan: PlanStep[]
+      toolCalls: ToolCall[]
+      requiresConfirmation: boolean
+      suggestions: string[]
+    }
+
+    interface ConversationDetail {
+      conversation: Conversation
+      messages: Message[]
+      toolCalls: ToolCall[]
+    }
+
+    interface EmailDraftRequest {
+      conversationId?: number
+      sourceToolCallId?: number
+      userId?: number | string
+      subject?: string
+      content?: string
+    }
+
+    interface EmailDraft {
+      subject: string
+      body: string
+      conversationId?: number
+      sourceToolCallId?: number
+    }
+
+    interface EmailSendRequest {
+      conversationId?: number
+      sourceToolCallId?: number
+      userId?: number | string
+      toEmails: string[]
+      ccEmails: string[]
+      subject: string
+      body: string
+    }
+
+    interface EmailSendResult {
+      success: boolean
+      message: string
+      toEmails: string[]
+      ccEmails: string[]
+      sendTime: string
     }
   }
 
@@ -466,33 +630,33 @@ declare namespace Api {
     }
     type RoleSaveParams = Partial<RoleListItem> & Pick<RoleListItem, 'roleName' | 'roleCode'>
     //路由信息
-     interface MenuFormData {
-    id: number | string
-    name: string
-    path: string
-    label: string
-    component: string
-    icon: string
-    isEnable: boolean
-    sort: number
-    isMenu: boolean
-    keepAlive: boolean
-    isHide: boolean
-    isHideTab: boolean
-    link: string
-    isIframe: boolean
-    showBadge: boolean
-    showTextBadge: string
-    fixedTab: boolean
-    activePath: string
-    roles: string[]
-    isFullPage: boolean
-    authName: string
-    authLabel: string
-    authIcon: string
-    authSort: number
-    action:string
-  }
+    interface MenuFormData {
+      id: number | string
+      name: string
+      path: string
+      label: string
+      component: string
+      icon: string
+      isEnable: boolean
+      sort: number
+      isMenu: boolean
+      keepAlive: boolean
+      isHide: boolean
+      isHideTab: boolean
+      link: string
+      isIframe: boolean
+      showBadge: boolean
+      showTextBadge: string
+      fixedTab: boolean
+      activePath: string
+      roles: string[]
+      isFullPage: boolean
+      authName: string
+      authLabel: string
+      authIcon: string
+      authSort: number
+      action: string
+    }
 
     /** 角色搜索参数 */
     type RoleSearchParams = Partial<

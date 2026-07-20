@@ -45,14 +45,6 @@ export const useAuth = () => {
   const { isFrontendMode } = useAppMode()
   const { info } = storeToRefs(userStore)
 
-  // 前端按钮权限（例如：['add', 'edit']）
-  const frontendAuthList = info.value?.buttons ?? []
-
-  // 后端路由 meta 配置的权限列表（例如：[{ authMark: 'add' }]）
-  const backendAuthList: AuthItem[] = Array.isArray(route.meta.authList)
-    ? (route.meta.authList as AuthItem[])
-    : []
-
   /**
    * 检查是否拥有某权限标识（前后端模式通用）
    * @param auth 权限标识
@@ -61,10 +53,26 @@ export const useAuth = () => {
   const hasAuth = (auth: string): boolean => {
     // 前端模式
     if (isFrontendMode.value) {
+      const frontendAuthList = info.value?.buttons ?? []
       return frontendAuthList.includes(auth)
     }
 
     // 后端模式
+    const backendAuthList: AuthItem[] = Array.isArray(route.meta.authList)
+      ? (route.meta.authList as AuthItem[])
+      : []
+    const permissionKeys = info.value?.permissionKeys || []
+    const routeName = String(route.name || '')
+
+    if (permissionKeys.includes('*')) return true
+
+    const userHasPermission =
+      permissionKeys.includes(auth) ||
+      permissionKeys.includes(`${routeName}_${auth}`) ||
+      permissionKeys.includes(`${routeName}:${auth}`)
+
+    if (!userHasPermission) return false
+
     return backendAuthList.some((item) => item?.authMark === auth)
   }
 

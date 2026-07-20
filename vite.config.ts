@@ -1,6 +1,3 @@
-
-
-
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
@@ -12,13 +9,12 @@ import AutoImport from 'unplugin-auto-import/vite'
 import ElementPlus from 'unplugin-element-plus/vite'
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 import tailwindcss from '@tailwindcss/vite'
-import { parseJsonText } from 'typescript'
 // import { visualizer } from 'rollup-plugin-visualizer'
 
 export default ({ mode }: { mode: string }) => {
   const root = process.cwd()
   const env = loadEnv(mode, root)
-  const { VITE_VERSION, VITE_PORT, VITE_BASE_URL, VITE_API_URL, VITE_API_PROXY_URL } = env
+  const { VITE_VERSION, VITE_PORT, VITE_BASE_URL, VITE_API_PROXY_URL } = env
 
   return defineConfig({
     define: {
@@ -30,8 +26,13 @@ export default ({ mode }: { mode: string }) => {
       proxy: {
         '/api': {
           target: VITE_API_PROXY_URL,
+          changeOrigin: true
+          // rewrite:(path)=>path.replace(/^\/api/,'')
+        },
+        '/ws': {
+          target: VITE_API_PROXY_URL,
           changeOrigin: true,
-         // rewrite:(path)=>path.replace(/^\/api/,'')
+          ws: true
         }
       },
       host: true
@@ -98,8 +99,8 @@ export default ({ mode }: { mode: string }) => {
         ext: '.gz', // 压缩后的文件名后缀
         threshold: 10240, // 只有大小大于该值的资源会被处理 10240B = 10KB
         deleteOriginFile: false // 压缩后是否删除原文件
-      }),
-    //  vueDevTools()
+      })
+      //  vueDevTools()
       // 打包分析
       // visualizer({
       //   open: true,
