@@ -1,0 +1,61 @@
+<template>
+  <section class="stats-grid">
+    <div class="stat-item status-stat">
+      <div class="stat-icon"><Connection /></div>
+      <div>
+        <span>在线设备</span>
+        <strong>{{ overview.onlineCount }} / {{ overview.deviceCount }}</strong>
+        <small>{{ overview.offlineCount }} 台离线，{{ overview.disabledCount }} 台停用</small>
+      </div>
+    </div>
+    <div class="stat-item queue-stat">
+      <div class="stat-icon"><DataLine /></div>
+      <div>
+        <span>待处理队列</span>
+        <strong>{{ overview.queueDepth }}</strong>
+        <small>中心端待转发消息</small>
+      </div>
+    </div>
+    <div class="stat-item error-stat">
+      <div class="stat-icon"><WarningFilled /></div>
+      <div>
+        <span>失败与告警</span>
+        <strong>{{ overview.failedCount + overview.activeAlarmCount }}</strong>
+        <small
+          >{{ overview.failedCount }} 条失败，{{ overview.activeAlarmCount }} 条未处理告警</small
+        >
+      </div>
+    </div>
+    <div class="stat-item forward-stat">
+      <div class="stat-icon"><Promotion /></div>
+      <div>
+        <span>转发成功</span>
+        <strong>{{ overview.successfulForwardCount }}</strong>
+        <small>累计成功转发到 B 系统</small>
+      </div>
+    </div>
+    <div class="stat-item success-stat">
+      <div class="stat-icon"><CircleCheckFilled /></div>
+      <div>
+        <span>转发成功率</span>
+        <strong>{{ overview.uploadSuccessRate.toFixed(2) }}%</strong>
+        <small>B 系统适配转发统计</small>
+      </div>
+    </div>
+  </section>
+</template>
+
+<script setup lang="ts">
+  import {
+    CircleCheckFilled,
+    Connection,
+    DataLine,
+    Promotion,
+    WarningFilled
+  } from '@element-plus/icons-vue'
+  import type { EdgeOverview } from '@/api/edge-gateway'
+
+  defineProps<{
+    overview: EdgeOverview
+  }>()
+</script>
