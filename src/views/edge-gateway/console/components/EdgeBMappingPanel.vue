@@ -4,15 +4,31 @@
       <el-tag :type="autoForwardSetting?.enabled ? 'success' : 'info'" effect="plain">
         自动转发：{{ autoForwardSetting?.enabled ? '已启用' : '已停用' }}
       </el-tag>
+      <el-button
+        type="danger"
+        :icon="Delete"
+        :disabled="selectedMappings.length === 0"
+        :loading="deleteLoading"
+        @click="removeMappings(selectedMappings)"
+      >
+        批量删除
+      </el-button>
       <el-button :icon="Setting" @click="autoForwardDialogVisible = true">自动转发设置</el-button>
       <el-button :icon="Files" @click="templateManagerVisible = true">模板管理</el-button>
       <el-button type="primary" :icon="Plus" @click="openDialog()">新增映射</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="mappings" height="520" stripe>
+    <el-table
+      v-loading="loading"
+      :data="mappings"
+      height="520"
+      stripe
+      @selection-change="selectedMappings = $event"
+    >
+      <el-table-column type="selection" width="46" />
       <el-table-column prop="mappingName" label="映射名称" min-width="180" />
-      <el-table-column label="适用范围" width="170">
-        <template #default="{ row }">{{ deviceName(row.deviceId) }}</template>
+      <el-table-column label="适用范围" min-width="250" show-overflow-tooltip>
+        <template #default="{ row }">{{ mappingScope(row) }}</template>
       </el-table-column>
       <el-table-column label="报文模板" min-width="160" show-overflow-tooltip>
         <template #default="{ row }">{{ row.payloadTemplateName || '自定义结构' }}</template>
@@ -41,7 +57,7 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="150" fixed="right">
+      <el-table-column label="操作" width="190" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="openDialog(row)">编辑</el-button>
           <el-button
@@ -50,6 +66,7 @@
           >
             映射
           </el-button>
+          <el-button link type="danger" @click="removeMappings([row])">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -79,8 +96,10 @@
 
 <script setup lang="ts">
   import { ref } from 'vue'
-  import { Files, Plus, Setting } from '@element-plus/icons-vue'
+  import { ElMessage, ElMessageBox } from 'element-plus'
+  import { Delete, Files, Plus, Setting } from '@element-plus/icons-vue'
   import {
+    deleteEdgeBMappings,
     fetchEdgeBAutoForwardSetting,
     fetchEdgeBMappings,
     fetchEdgeBPayloadTemplates,
@@ -107,6 +126,8 @@
   const templateManagerVisible = ref(false)
   const autoForwardDialogVisible = ref(false)
   const editingMapping = ref<EdgeBMapping>()
+  const selectedMappings = ref<EdgeBMapping[]>([])
+  const deleteLoading = ref(false)
 
   const loadMappings = async () => {
     loading.value = true
@@ -137,9 +158,44 @@
 
   const deviceName = (deviceId?: number) => getDeviceName(deviceOptions.value, deviceId)
 
+  const mappingScope = (mapping: EdgeBMapping) => {
+    if (mapping.sourceDeviceCode) {
+      return `${deviceName(mapping.deviceId)} / ${mapping.sourceId} / ${mapping.sourceDeviceCode}`
+    }
+    return mapping.deviceId ? `${deviceName(mapping.deviceId)} / 节点默认` : '全局默认'
+  }
+
   const openDialog = (row?: EdgeBMapping) => {
     editingMapping.value = row
     dialogVisible.value = true
+  }
+
+  const removeMappings = async (rows: EdgeBMapping[]) => {
+    if (rows.length === 0) return
+    const countText = rows.length === 1 ? `映射“${rows[0].mappingName}”` : `${rows.length} 条映射`
+    try {
+      await ElMessageBox.confirm(
+        `确定删除${countText}吗？删除后该范围的数据将不再按此配置转发。`,
+        '删除 B 系统映射',
+        {
+          type: 'warning',
+          confirmButtonText: '删除',
+          cancelButtonText: '取消'
+        }
+      )
+    } catch {
+      return
+    }
+
+    deleteLoading.value = true
+    try {
+      const count = await deleteEdgeBMappings(rows.map((item) => item.id))
+      ElMessage.success(`已删除 ${count} 条 B 系统映射`)
+      selectedMappings.value = []
+      await loadMappings()
+    } finally {
+      deleteLoading.value = false
+    }
   }
 
   defineExpose({ refresh })

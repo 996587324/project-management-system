@@ -104,6 +104,8 @@
   const props = defineProps<{
     deviceId?: number
     deviceCode?: string
+    sourceId?: string
+    sourceDeviceCode?: string
   }>()
 
   const model = defineModel<string>({ required: true })
@@ -117,7 +119,9 @@
   const { candidatePaths, deviceFieldOptions, loading, sourcePlaceholder, standardOptions } =
     useBSourceFields(
       () => props.deviceId,
-      () => props.deviceCode
+      () => props.deviceCode,
+      () => props.sourceId,
+      () => props.sourceDeviceCode
     )
 
   const missingSourceOptions = computed(() => {

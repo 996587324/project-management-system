@@ -36,6 +36,27 @@
     }
   }
 
+  .page-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: flex-end;
+
+    .el-button + .el-button {
+      margin-left: 0;
+    }
+  }
+
+  .hidden-import-input {
+    display: none;
+  }
+
+  .import-result-alert,
+  .import-result-summary {
+    margin-bottom: 14px;
+  }
+
   .stats-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -585,6 +606,15 @@
     .page-header,
     .toolbar {
       align-items: flex-start;
+    }
+
+    .page-header {
+      flex-direction: column;
+    }
+
+    .page-header-actions {
+      justify-content: flex-start;
+      width: 100%;
     }
 
     .toolbar {

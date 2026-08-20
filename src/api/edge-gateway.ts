@@ -12,6 +12,10 @@ export interface EdgeOverview {
   onlineCount: number
   offlineCount: number
   disabledCount: number
+  connectionCount: number
+  receivingConnectionCount: number
+  noDataConnectionCount: number
+  disabledConnectionCount: number
   queueDepth: number
   failedCount: number
   activeAlarmCount: number
@@ -67,6 +71,9 @@ export interface EdgeWebSocketSource {
   enabled: boolean
   version: number
   subscriptionVersion: number
+  dataOnline: boolean
+  dataStatus: 'Receiving' | 'Interrupted' | 'NeverReceived' | 'Disabled'
+  lastDataTime?: string
   subscriptionDevices: EdgeWebSocketSubscriptionDevice[]
   createTime?: string
   updateTime?: string
@@ -77,6 +84,9 @@ export type EdgeWebSocketSourceSave = Omit<
   | 'deviceId'
   | 'version'
   | 'subscriptionVersion'
+  | 'dataOnline'
+  | 'dataStatus'
+  | 'lastDataTime'
   | 'subscriptionDevices'
   | 'createTime'
   | 'updateTime'
@@ -103,6 +113,63 @@ export interface EdgeWebSocketSubscriptionDevice {
 export interface EdgeWebSocketReconnectResult {
   deviceCount: number
   connectionCount: number
+}
+
+export interface EdgeRealtimeDataItem {
+  data: Record<string, unknown>
+}
+
+export interface EdgeRealtimeReceivePayload {
+  modelMark?: string
+  data: Record<string, unknown>
+  dataType?: number
+  tenantMark: string
+  messageId?: string
+  time?: number
+  deviceMark: string
+}
+
+export interface EdgeRealtimeReceiveResult {
+  snapshotId: number
+  receivedCount: number
+  insertedCount: number
+  updatedCount: number
+  ignoredOlderCount: number
+  dataTime?: string
+  receiveTime?: string
+}
+
+export interface EdgeRealtimeSnapshot {
+  id: number
+  deviceCode: string
+  deviceMark: string
+  modelMark?: string
+  data: Record<string, unknown>
+  dataType?: number
+  tenantMark?: string
+  messageId?: string
+  time?: number
+  dataList: EdgeRealtimeDataItem[]
+  dataTime?: string
+  receiveTime?: string
+  lastRequestId?: string
+  dataOnline: boolean
+  dataStatus: 'Receiving' | 'Interrupted'
+  createTime?: string
+  updateTime?: string
+}
+
+export interface EdgeRealtimeSnapshotQuery {
+  current: number
+  size: number
+  tenantMark?: string
+  modelMark?: string
+  deviceCode?: string
+  dataOnline?: boolean
+}
+
+export interface EdgeRealtimeRequestOptions {
+  apiKey?: string
 }
 
 export interface EdgeDeviceConfig {
@@ -162,6 +229,10 @@ export interface EdgeUploadRecord {
   queueId: number
   messageId: string
   deviceCode: string
+  sourceId?: string
+  sourceDeviceCode?: string
+  mappingRuleId?: number
+  mappingName?: string
   targetUrl?: string
   success: boolean
   statusCode?: number
@@ -187,6 +258,8 @@ export type EdgeBTransportProtocol = 'HTTP' | 'MQTT'
 export interface EdgeBMapping {
   id: number
   deviceId?: number
+  sourceId?: string
+  sourceDeviceCode?: string
   payloadTemplateId?: number
   payloadTemplateName?: string
   mappingName: string
@@ -229,6 +302,21 @@ export interface EdgeBAutoForwardSetting {
   lastSuccessCount: number
   lastFailedCount: number
   updateTime?: string
+}
+
+export interface EdgeGatewayImportFailure {
+  sheetName: string
+  rowIndex: number
+  key: string
+  reason: string
+}
+
+export interface EdgeGatewayImportResult {
+  total: number
+  successCount: number
+  failedCount: number
+  message: string
+  failures: EdgeGatewayImportFailure[]
 }
 
 type RawObject = Record<string, any>
@@ -319,6 +407,9 @@ const normalizeWebSocketSource = (data: RawObject): EdgeWebSocketSource => ({
   enabled: Boolean(value(data, 'enabled', true)),
   version: Number(value(data, 'version', 0)),
   subscriptionVersion: Number(value(data, 'subscriptionVersion', 0)),
+  dataOnline: Boolean(value(data, 'dataOnline', false)),
+  dataStatus: value(data, 'dataStatus', 'NeverReceived'),
+  lastDataTime: value(data, 'lastDataTime'),
   subscriptionDevices: value<RawObject[]>(data, 'subscriptionDevices', []).map(
     normalizeWebSocketSubscriptionDevice
   ),
@@ -329,6 +420,40 @@ const normalizeWebSocketSource = (data: RawObject): EdgeWebSocketSource => ({
 const normalizeWebSocketReconnectResult = (data: RawObject): EdgeWebSocketReconnectResult => ({
   deviceCount: Number(value(data, 'deviceCount', 0)),
   connectionCount: Number(value(data, 'connectionCount', 0))
+})
+
+const normalizeRealtimeDataItem = (data: RawObject): EdgeRealtimeDataItem => ({
+  data: value<RawObject>(data, 'data', {}) || {}
+})
+
+const normalizeRealtimeReceiveResult = (data: RawObject): EdgeRealtimeReceiveResult => ({
+  snapshotId: Number(value(data, 'snapshotId', 0)),
+  receivedCount: Number(value(data, 'receivedCount', 0)),
+  insertedCount: Number(value(data, 'insertedCount', 0)),
+  updatedCount: Number(value(data, 'updatedCount', 0)),
+  ignoredOlderCount: Number(value(data, 'ignoredOlderCount', 0)),
+  dataTime: value(data, 'dataTime'),
+  receiveTime: value(data, 'receiveTime')
+})
+
+const normalizeRealtimeSnapshot = (data: RawObject): EdgeRealtimeSnapshot => ({
+  id: Number(value(data, 'id', 0)),
+  deviceCode: value(data, 'deviceCode', ''),
+  deviceMark: value(data, 'deviceMark', value(data, 'deviceCode', '')),
+  modelMark: value(data, 'modelMark'),
+  data: value<RawObject>(data, 'data', {}) || {},
+  dataType: value(data, 'dataType'),
+  tenantMark: value(data, 'tenantMark'),
+  messageId: value(data, 'messageId'),
+  time: value(data, 'time'),
+  dataList: value<RawObject[]>(data, 'dataList', []).map(normalizeRealtimeDataItem),
+  dataTime: value(data, 'dataTime'),
+  receiveTime: value(data, 'receiveTime'),
+  lastRequestId: value(data, 'lastRequestId'),
+  dataOnline: Boolean(value(data, 'dataOnline', false)),
+  dataStatus: value(data, 'dataStatus', 'Interrupted'),
+  createTime: value(data, 'createTime'),
+  updateTime: value(data, 'updateTime')
 })
 
 const normalizeRule = (data: RawObject): EdgeRule => ({
@@ -376,6 +501,10 @@ const normalizeUploadRecord = (data: RawObject): EdgeUploadRecord => ({
   queueId: Number(value(data, 'queueId', 0)),
   messageId: value(data, 'messageId', ''),
   deviceCode: value(data, 'deviceCode', ''),
+  sourceId: value(data, 'sourceId'),
+  sourceDeviceCode: value(data, 'sourceDeviceCode'),
+  mappingRuleId: value(data, 'mappingRuleId'),
+  mappingName: value(data, 'mappingName'),
   targetUrl: value(data, 'targetUrl'),
   success: Boolean(value(data, 'success', false)),
   statusCode: value(data, 'statusCode'),
@@ -389,6 +518,8 @@ const normalizeUploadRecord = (data: RawObject): EdgeUploadRecord => ({
 const normalizeBMapping = (data: RawObject): EdgeBMapping => ({
   id: Number(value(data, 'id', 0)),
   deviceId: value(data, 'deviceId'),
+  sourceId: value(data, 'sourceId'),
+  sourceDeviceCode: value(data, 'sourceDeviceCode'),
   payloadTemplateId: value(data, 'payloadTemplateId'),
   payloadTemplateName: value(data, 'payloadTemplateName'),
   mappingName: value(data, 'mappingName', ''),
@@ -435,6 +566,21 @@ const normalizeBAutoForwardSetting = (data: RawObject): EdgeBAutoForwardSetting 
   updateTime: value(data, 'updateTime')
 })
 
+const normalizeGatewayImportFailure = (data: RawObject): EdgeGatewayImportFailure => ({
+  sheetName: value(data, 'sheetName', ''),
+  rowIndex: Number(value(data, 'rowIndex', 0)),
+  key: value(data, 'key', ''),
+  reason: value(data, 'reason', '')
+})
+
+const normalizeGatewayImportResult = (data: RawObject): EdgeGatewayImportResult => ({
+  total: Number(value(data, 'total', 0)),
+  successCount: Number(value(data, 'successCount', 0)),
+  failedCount: Number(value(data, 'failedCount', 0)),
+  message: value(data, 'message', ''),
+  failures: value<RawObject[]>(data, 'failures', []).map(normalizeGatewayImportFailure)
+})
+
 const normalizePage = <T>(data: RawObject, mapper: (item: RawObject) => T): EdgePageResult<T> => ({
   records: (value<RawObject[]>(data, 'records', []) || []).map(mapper),
   current: Number(value(data, 'current', 1)),
@@ -449,6 +595,10 @@ export async function fetchEdgeOverview() {
     onlineCount: Number(value(data, 'onlineCount', 0)),
     offlineCount: Number(value(data, 'offlineCount', 0)),
     disabledCount: Number(value(data, 'disabledCount', 0)),
+    connectionCount: Number(value(data, 'connectionCount', 0)),
+    receivingConnectionCount: Number(value(data, 'receivingConnectionCount', 0)),
+    noDataConnectionCount: Number(value(data, 'noDataConnectionCount', 0)),
+    disabledConnectionCount: Number(value(data, 'disabledConnectionCount', 0)),
     queueDepth: Number(value(data, 'queueDepth', 0)),
     failedCount: Number(value(data, 'failedCount', 0)),
     activeAlarmCount: Number(value(data, 'activeAlarmCount', 0)),
@@ -456,6 +606,20 @@ export async function fetchEdgeOverview() {
     uploadSuccessRate: Number(value(data, 'uploadSuccessRate', 0)),
     recentEvents: value<RawObject[]>(data, 'recentEvents', []).map(normalizeEvent)
   } as EdgeOverview
+}
+
+export function getEdgeGatewayConfigurationTemplateUrl(includeData = false) {
+  const baseUrl = String(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+  return `${baseUrl}/api/EdgeGateway/configuration-template?includeData=${includeData}`
+}
+
+export async function importEdgeGatewayConfiguration(formData: FormData) {
+  const data = await request.request<RawObject>({
+    url: '/api/EdgeGateway/configuration-import',
+    method: 'POST',
+    data: formData
+  })
+  return normalizeGatewayImportResult(data)
 }
 
 export async function fetchEdgeDevices(params: RawObject) {
@@ -533,6 +697,33 @@ export async function reconnectAllWebSocketSources() {
   return normalizeWebSocketReconnectResult(data)
 }
 
+export async function fetchEdgeRealtimeSnapshots(
+  params: EdgeRealtimeSnapshotQuery,
+  showErrorMessage = true
+) {
+  const data = await request.get<RawObject>({
+    url: '/api/EdgeGateway/realtime-data',
+    params,
+    showErrorMessage
+  })
+  return normalizePage(data, normalizeRealtimeSnapshot)
+}
+
+export async function sendEdgeRealtimeTestData(
+  payload: EdgeRealtimeReceivePayload,
+  options: EdgeRealtimeRequestOptions = {}
+) {
+  const headers: Record<string, string> = {}
+  if (options.apiKey) headers['X-Edge-Api-Key'] = options.apiKey
+
+  const data = await request.post<RawObject>({
+    url: '/api/EdgeGateway/realtime-data',
+    data: payload,
+    headers
+  })
+  return normalizeRealtimeReceiveResult(data)
+}
+
 export async function fetchDeviceConfigs(deviceId: number) {
   const data = await request.get<RawObject[]>({
     url: `/api/EdgeGateway/devices/${deviceId}/configs`
@@ -604,6 +795,10 @@ export function forwardEdgeQueue(ids: number[]) {
   return request.post<RawObject>({ url: '/api/EdgeGateway/queue/forward', params: { ids } })
 }
 
+export function deleteEdgeQueue(ids: number[]) {
+  return request.post<number>({ url: '/api/EdgeGateway/queue/delete', params: { ids } })
+}
+
 export async function fetchEdgeEvents(params: RawObject) {
   const data = await request.get<RawObject>({ url: '/api/EdgeGateway/events', params })
   return normalizePage(data, normalizeEvent)
@@ -616,6 +811,10 @@ export async function fetchEdgeBMappings() {
 
 export function saveEdgeBMapping(params: EdgeBMapping) {
   return request.post({ url: '/api/EdgeGateway/b-mappings', params })
+}
+
+export function deleteEdgeBMappings(ids: number[]) {
+  return request.post<number>({ url: '/api/EdgeGateway/b-mappings/delete', params: { ids } })
 }
 
 export async function fetchEdgeBPayloadTemplates() {

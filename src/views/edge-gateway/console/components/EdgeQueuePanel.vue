@@ -11,13 +11,27 @@
         <el-button @click="loadQueue">查询</el-button>
       </div>
       <div class="actions">
-        <el-button :loading="actionLoading" @click="retry">
+        <el-button :disabled="selectedQueue.length === 0" :loading="actionLoading" @click="retry">
           <el-icon><RefreshLeft /></el-icon>
           重试
         </el-button>
-        <el-button type="primary" :loading="actionLoading" @click="forward">
+        <el-button
+          type="primary"
+          :disabled="selectedQueue.length === 0"
+          :loading="actionLoading"
+          @click="forward"
+        >
           <el-icon><Promotion /></el-icon>
           转发至 B 系统
+        </el-button>
+        <el-button
+          type="danger"
+          :disabled="selectedQueue.length === 0"
+          :loading="actionLoading"
+          @click="removeQueue(selectedQueue)"
+        >
+          <el-icon><Delete /></el-icon>
+          批量删除
         </el-button>
       </div>
     </div>
@@ -55,7 +69,7 @@
       <el-table-column label="消息时间" width="170">
         <template #default="{ row }">{{ formatTime(row.messageTime) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="174" fixed="right">
+      <el-table-column label="操作" width="220" fixed="right">
         <template #default="{ row }">
           <el-button
             link
@@ -64,6 +78,7 @@
             消息 JSON
           </el-button>
           <el-button link type="primary" @click="openUploadRecords(row)"> 上传记录 </el-button>
+          <el-button link type="danger" @click="removeQueue([row])">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -88,9 +103,10 @@
 
 <script setup lang="ts">
   import { reactive, ref } from 'vue'
-  import { ElMessage } from 'element-plus'
-  import { Promotion, RefreshLeft } from '@element-plus/icons-vue'
+  import { ElMessage, ElMessageBox } from 'element-plus'
+  import { Delete, Promotion, RefreshLeft } from '@element-plus/icons-vue'
   import {
+    deleteEdgeQueue,
     fetchEdgeQueue,
     forwardEdgeQueue,
     retryEdgeQueue,
@@ -173,6 +189,36 @@
       } else {
         ElMessage.success(`已成功转发 ${successCount} 条消息`)
       }
+      await loadQueue()
+      emit('overview-changed')
+    } finally {
+      actionLoading.value = false
+    }
+  }
+
+  const removeQueue = async (rows: EdgeQueueMessage[]) => {
+    if (rows.length === 0) return
+    const countText = rows.length === 1 ? `消息 ${rows[0].messageId}` : `${rows.length} 条消息`
+    try {
+      await ElMessageBox.confirm(
+        `确定删除${countText}吗？对应的 B 系统上传记录也会一并删除。`,
+        '删除消息队列数据',
+        {
+          type: 'warning',
+          confirmButtonText: '删除',
+          cancelButtonText: '取消'
+        }
+      )
+    } catch {
+      return
+    }
+
+    actionLoading.value = true
+    try {
+      const count = await deleteEdgeQueue(rows.map((item) => item.id))
+      ElMessage.success(`已删除 ${count} 条消息`)
+      selectedQueue.value = []
+      if (queue.records.length === rows.length && query.current > 1) query.current--
       await loadQueue()
       emit('overview-changed')
     } finally {

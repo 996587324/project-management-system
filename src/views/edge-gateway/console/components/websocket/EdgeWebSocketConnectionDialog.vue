@@ -2,7 +2,7 @@
   <el-dialog
     v-model="visible"
     :title="form.id ? '编辑 WebSocket 连接' : '新增 WebSocket 连接'"
-    width="min(980px, 96vw)"
+    :width="usePagedSubscriptionEditor ? 'min(1200px, 96vw)' : 'min(980px, 96vw)'"
     class="edge-gateway-dialog websocket-editor-dialog"
   >
     <el-form label-position="top">
@@ -53,7 +53,16 @@
         <EdgeWebSocketHeaderEditor v-model="headers" />
       </el-form-item>
 
-      <EdgeWebSocketSubscriptionEditor ref="subscriptionEditor" v-model="subscriptionDevices" />
+      <EdgeWebSocketPagedSubscriptionEditor
+        v-if="usePagedSubscriptionEditor"
+        ref="subscriptionEditor"
+        v-model="subscriptionDevices"
+      />
+      <EdgeWebSocketSubscriptionEditor
+        v-else
+        ref="subscriptionEditor"
+        v-model="subscriptionDevices"
+      />
     </el-form>
 
     <template #footer>
@@ -64,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-  import { reactive, ref, watch } from 'vue'
+  import { computed, reactive, ref, watch } from 'vue'
   import { ElMessage } from 'element-plus'
   import {
     saveWebSocketSource,
@@ -77,6 +86,11 @@
     type WebSocketHeaderEntry
   } from './EdgeWebSocketHeaderEditor.vue'
   import EdgeWebSocketSubscriptionEditor from './EdgeWebSocketSubscriptionEditor.vue'
+  import EdgeWebSocketPagedSubscriptionEditor from './EdgeWebSocketPagedSubscriptionEditor.vue'
+  import { countSubscriptionParameters } from './subscriptionEditorUtils'
+
+  const PAGED_EDITOR_DEVICE_THRESHOLD = 30
+  const PAGED_EDITOR_PARAMETER_THRESHOLD = 500
 
   const props = defineProps<{
     deviceId?: number
@@ -95,6 +109,12 @@
   const subscriptionEditor = ref<{ validate: () => boolean }>()
   const originalConnectionSignature = ref('')
   let headerSequence = 0
+
+  const usePagedSubscriptionEditor = computed(
+    () =>
+      subscriptionDevices.value.length > PAGED_EDITOR_DEVICE_THRESHOLD ||
+      countSubscriptionParameters(subscriptionDevices.value) > PAGED_EDITOR_PARAMETER_THRESHOLD
+  )
 
   const defaultSource = (): EdgeWebSocketSourceSave => ({
     id: 0,

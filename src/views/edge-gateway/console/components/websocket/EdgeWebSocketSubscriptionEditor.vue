@@ -94,139 +94,29 @@
   import { computed } from 'vue'
   import { ElMessage } from 'element-plus'
   import { Delete, DocumentCopy, Plus } from '@element-plus/icons-vue'
-  import type {
-    EdgeWebSocketSubscriptionDevice,
-    EdgeWebSocketSubscriptionParameter
-  } from '@/api/edge-gateway'
+  import type { EdgeWebSocketSubscriptionDevice } from '@/api/edge-gateway'
+  import {
+    buildSubscriptionPayload,
+    countSubscriptionParameters,
+    createSubscriptionDevice,
+    createSubscriptionParameter,
+    validateSubscriptions
+  } from './subscriptionEditorUtils'
 
   const model = defineModel<EdgeWebSocketSubscriptionDevice[]>({ required: true })
 
-  const createParameter = (): EdgeWebSocketSubscriptionParameter => ({
-    parameterName: '',
-    parameterNameCn: '',
-    dataType: '',
-    enabled: true,
-    sort: 0
-  })
+  const parameterCount = computed(() => countSubscriptionParameters(model.value))
+  const subscriptionPayload = computed(() => buildSubscriptionPayload(model.value))
 
-  const createDevice = (): EdgeWebSocketSubscriptionDevice => ({
-    deviceCode: '',
-    deviceName: '',
-    enabled: true,
-    sort: 0,
-    parameters: [createParameter()]
-  })
-
-  const parameterCount = computed(() =>
-    model.value.reduce((total, device) => total + device.parameters.length, 0)
-  )
-
-  const normalizedDevices = computed(() =>
-    model.value
-      .filter((device) => device.enabled)
-      .map((device) => ({
-        deviceCode: device.deviceCode.trim(),
-        parameters: device.parameters
-          .filter((parameter) => parameter.enabled)
-          .map((parameter) => parameter.parameterName.trim())
-          .filter(Boolean)
-      }))
-      .filter((device) => device.deviceCode && device.parameters.length)
-  )
-
-  const subscriptionPayload = computed(() =>
-    JSON.stringify({ devices: normalizedDevices.value }, null, 2)
-  )
-
-  const addDevice = () => model.value.push(createDevice())
+  const addDevice = () => model.value.push(createSubscriptionDevice())
   const removeDevice = (index: number) => model.value.splice(index, 1)
   const addParameter = (deviceIndex: number) =>
-    model.value[deviceIndex].parameters.push(createParameter())
+    model.value[deviceIndex].parameters.push(createSubscriptionParameter())
 
   const validate = () => {
-    if (!model.value.length) {
-      ElMessage.warning('至少需要配置一个订阅设备')
-      return false
-    }
-    if (model.value.length > 500) {
-      ElMessage.warning('单个连接最多配置 500 个订阅设备')
-      return false
-    }
-    if (parameterCount.value > 5000) {
-      ElMessage.warning('单个连接的订阅参数总数不能超过 5000 个')
-      return false
-    }
-    const deviceCodes = new Set<string>()
-    let enabledDeviceCount = 0
-    for (let deviceIndex = 0; deviceIndex < model.value.length; deviceIndex += 1) {
-      const device = model.value[deviceIndex]
-      const deviceCode = device.deviceCode.trim()
-      if (!deviceCode) {
-        ElMessage.warning(`第 ${deviceIndex + 1} 个订阅设备没有填写设备代码`)
-        return false
-      }
-      if (deviceCode.length > 128) {
-        ElMessage.warning(`设备代码 ${deviceCode} 不能超过 128 个字符`)
-        return false
-      }
-      if ((device.deviceName?.trim().length ?? 0) > 128) {
-        ElMessage.warning(`设备 ${deviceCode} 的名称不能超过 128 个字符`)
-        return false
-      }
-      if (deviceCodes.has(deviceCode.toLowerCase())) {
-        ElMessage.warning(`设备代码重复：${deviceCode}`)
-        return false
-      }
-      deviceCodes.add(deviceCode.toLowerCase())
-      if (!device.parameters.length) {
-        ElMessage.warning(`设备 ${deviceCode} 至少需要配置一个参数`)
-        return false
-      }
-      if (device.parameters.length > 200) {
-        ElMessage.warning(`设备 ${deviceCode} 最多配置 200 个参数`)
-        return false
-      }
-      const parameterNames = new Set<string>()
-      let enabledParameterCount = 0
-      for (let parameterIndex = 0; parameterIndex < device.parameters.length; parameterIndex += 1) {
-        const parameter = device.parameters[parameterIndex]
-        const parameterName = parameter.parameterName.trim()
-        if (!parameterName) {
-          ElMessage.warning(`设备 ${deviceCode} 的第 ${parameterIndex + 1} 个参数名称为空`)
-          return false
-        }
-        if (parameterName.length > 128) {
-          ElMessage.warning(`参数 ${parameterName} 不能超过 128 个字符`)
-          return false
-        }
-        if ((parameter.parameterNameCn?.trim().length ?? 0) > 128) {
-          ElMessage.warning(`参数 ${parameterName} 的中文名称不能超过 128 个字符`)
-          return false
-        }
-        if ((parameter.dataType?.trim().length ?? 0) > 32) {
-          ElMessage.warning(`参数 ${parameterName} 的数据类型不能超过 32 个字符`)
-          return false
-        }
-        if (parameterNames.has(parameterName.toLowerCase())) {
-          ElMessage.warning(`设备 ${deviceCode} 的参数重复：${parameterName}`)
-          return false
-        }
-        parameterNames.add(parameterName.toLowerCase())
-        if (parameter.enabled) enabledParameterCount += 1
-      }
-      if (device.enabled) {
-        if (!enabledParameterCount) {
-          ElMessage.warning(`启用设备 ${deviceCode} 至少需要启用一个参数`)
-          return false
-        }
-        enabledDeviceCount += 1
-      }
-    }
-    if (!enabledDeviceCount) {
-      ElMessage.warning('至少需要启用一个订阅设备')
-      return false
-    }
-    return true
+    const error = validateSubscriptions(model.value)
+    if (error) ElMessage.warning(error)
+    return !error
   }
 
   const copyPayload = async () => {

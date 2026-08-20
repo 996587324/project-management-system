@@ -3,9 +3,14 @@
     <div class="stat-item status-stat">
       <div class="stat-icon"><Connection /></div>
       <div>
-        <span>在线设备</span>
-        <strong>{{ overview.onlineCount }} / {{ overview.deviceCount }}</strong>
-        <small>{{ overview.offlineCount }} 台离线，{{ overview.disabledCount }} 台停用</small>
+        <span>在线连接</span>
+        <strong>{{ overview.receivingConnectionCount }} / {{ overview.connectionCount }}</strong>
+        <small
+          >{{ overview.noDataConnectionCount }} 个未正常接收，{{
+            overview.disabledConnectionCount
+          }}
+          个停用</small
+        >
       </div>
     </div>
     <div class="stat-item queue-stat">

@@ -9,10 +9,6 @@
           class="filter-wide"
           @keyup.enter="loadDevices"
         />
-        <el-select v-model="query.onlineStatus" clearable placeholder="在线状态">
-          <el-option label="在线" value="Online" />
-          <el-option label="离线" value="Offline" />
-        </el-select>
         <el-button @click="loadDevices">查询</el-button>
       </div>
       <el-button type="primary" @click="openDialog()">
@@ -22,13 +18,6 @@
     </div>
 
     <el-table v-loading="loading" :data="devices.records" height="520" stripe>
-      <el-table-column label="状态" width="88" fixed>
-        <template #default="{ row }">
-          <el-tag :type="row.online ? 'success' : 'info'" effect="plain">
-            {{ row.online ? '在线' : '离线' }}
-          </el-tag>
-        </template>
-      </el-table-column>
       <el-table-column prop="deviceCode" label="设备编码" min-width="150" show-overflow-tooltip />
       <el-table-column prop="deviceName" label="设备名称" min-width="160" show-overflow-tooltip />
       <el-table-column prop="siteName" label="站点" min-width="130" show-overflow-tooltip />
@@ -127,7 +116,7 @@
   })
 
   const devices = reactive(emptyPage<EdgeDevice>())
-  const query = reactive({ current: 1, size: 20, keyword: '', onlineStatus: '' })
+  const query = reactive({ current: 1, size: 20, keyword: '' })
   const loading = ref(false)
   const saving = ref(false)
   const dialogVisible = ref(false)

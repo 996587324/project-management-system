@@ -14,6 +14,12 @@
           </el-tag>
         </template>
       </el-table-column>
+      <el-table-column prop="mappingName" label="命中映射" min-width="150" show-overflow-tooltip>
+        <template #default="{ row }">{{ row.mappingName || '-' }}</template>
+      </el-table-column>
+      <el-table-column label="来源订阅设备" min-width="190" show-overflow-tooltip>
+        <template #default="{ row }">{{ sourceRoute(row) }}</template>
+      </el-table-column>
       <el-table-column prop="targetUrl" label="目标地址" min-width="210" show-overflow-tooltip />
       <el-table-column prop="statusCode" label="响应码" width="88" align="right">
         <template #default="{ row }">{{ row.statusCode ?? '-' }}</template>
@@ -103,6 +109,11 @@
     if (!content) return '-'
     const compact = content.replace(/\s+/g, ' ').trim()
     return compact.length > 120 ? `${compact.slice(0, 120)}...` : compact
+  }
+
+  const sourceRoute = (record: EdgeUploadRecord) => {
+    if (!record.sourceDeviceCode) return record.sourceId || '-'
+    return `${record.sourceId || '-'} / ${record.sourceDeviceCode}`
   }
 
   const showResponse = (row: EdgeUploadRecord) => {

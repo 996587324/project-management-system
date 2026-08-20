@@ -10,8 +10,19 @@
         <el-form-item label="映射名称" required>
           <el-input v-model="form.mappingName" maxlength="128" />
         </el-form-item>
-        <el-form-item label="适用设备">
-          <el-select v-model="form.deviceId" clearable filterable placeholder="全局映射">
+        <el-form-item label="作用范围" required>
+          <el-segmented v-model="scopeType" :options="scopeOptions" @change="handleScopeChange" />
+        </el-form-item>
+      </div>
+
+      <div v-if="scopeType !== 'Global'" class="form-grid">
+        <el-form-item label="边缘节点" required>
+          <el-select
+            v-model="form.deviceId"
+            filterable
+            placeholder="选择负责采集的边缘节点"
+            @change="handleDeviceChange"
+          >
             <el-option
               v-for="device in deviceOptions"
               :key="device.id"
@@ -20,7 +31,39 @@
             />
           </el-select>
         </el-form-item>
+        <el-form-item v-if="scopeType === 'SubscriptionDevice'" label="WebSocket 数据源" required>
+          <el-select
+            v-model="form.sourceId"
+            :loading="sourceLoading"
+            filterable
+            placeholder="选择 WebSocket 连接"
+            @change="handleSourceChange"
+          >
+            <el-option
+              v-for="source in sourceOptions"
+              :key="source.id"
+              :label="`${source.sourceName} (${source.sourceId})${source.enabled ? '' : ' · 已停用'}`"
+              :value="source.sourceId"
+            />
+          </el-select>
+        </el-form-item>
       </div>
+
+      <el-form-item v-if="scopeType === 'SubscriptionDevice'" label="WebSocket 订阅设备" required>
+        <el-select
+          v-model="form.sourceDeviceCode"
+          :disabled="!form.sourceId"
+          filterable
+          placeholder="选择该连接订阅的 deviceCode"
+        >
+          <el-option
+            v-for="device in subscriptionDeviceOptions"
+            :key="device.id || device.deviceCode"
+            :label="`${device.deviceName || '未命名设备'} (${device.deviceCode})${device.enabled ? '' : ' · 已停用'}`"
+            :value="device.deviceCode"
+          />
+        </el-select>
+      </el-form-item>
 
       <el-form-item label="报文模板">
         <div class="template-selector">
@@ -67,6 +110,8 @@
           v-model="form.mappingJson"
           :device-id="form.deviceId"
           :device-code="selectedDeviceCode"
+          :source-id="form.sourceId"
+          :source-device-code="form.sourceDeviceCode"
         />
       </el-form-item>
     </el-form>
@@ -86,10 +131,12 @@
   import { Plus } from '@element-plus/icons-vue'
   import {
     saveEdgeBMapping,
+    fetchWebSocketSources,
     type EdgeBMapping,
     type EdgeBPayloadTemplate,
     type EdgeBTransportProtocol,
-    type EdgeDevice
+    type EdgeDevice,
+    type EdgeWebSocketSource
   } from '@/api/edge-gateway'
   import EdgeBHttpTransportFields from './EdgeBHttpTransportFields.vue'
   import EdgeBFieldMappingEditor from './EdgeBFieldMappingEditor.vue'
@@ -114,9 +161,22 @@
     applyTemplate: (content: string) => boolean
     validate: () => boolean
   }>()
+  type BMappingScope = 'Global' | 'Gateway' | 'SubscriptionDevice'
+  const scopeType = ref<BMappingScope>('Global')
+  const sourceOptions = ref<EdgeWebSocketSource[]>([])
+  const sourceLoading = ref(false)
+  const scopeOptions: Array<{ label: string; value: BMappingScope }> = [
+    { label: '全局默认', value: 'Global' },
+    { label: '节点默认', value: 'Gateway' },
+    { label: '订阅设备', value: 'SubscriptionDevice' }
+  ]
   const selectedDeviceCode = computed(
     () => props.deviceOptions.find((device) => device.id === form.deviceId)?.deviceCode
   )
+  const selectedSource = computed(() =>
+    sourceOptions.value.find((source) => source.sourceId === form.sourceId)
+  )
+  const subscriptionDeviceOptions = computed(() => selectedSource.value?.subscriptionDevices || [])
   const templateOptions = computed(() => {
     const items = [...props.templates]
     if (
@@ -141,6 +201,8 @@
   const defaultMapping = (): EdgeBMapping => ({
     id: 0,
     deviceId: undefined,
+    sourceId: undefined,
+    sourceDeviceCode: undefined,
     payloadTemplateId: undefined,
     payloadTemplateName: undefined,
     mappingName: '',
@@ -161,10 +223,51 @@
 
   const form = reactive<EdgeBMapping>(defaultMapping())
 
-  const resetForm = () => {
+  const loadSourceOptions = async () => {
+    sourceOptions.value = []
+    if (!form.deviceId) return
+    sourceLoading.value = true
+    try {
+      sourceOptions.value = await fetchWebSocketSources(form.deviceId)
+    } finally {
+      sourceLoading.value = false
+    }
+  }
+
+  const resetForm = async () => {
     Object.assign(form, defaultMapping(), props.mapping || {})
     form.protocol = form.protocol || 'HTTP'
     form.mqttPassword = ''
+    scopeType.value = form.sourceDeviceCode
+      ? 'SubscriptionDevice'
+      : form.deviceId
+        ? 'Gateway'
+        : 'Global'
+    await loadSourceOptions()
+  }
+
+  const clearSubscriptionScope = () => {
+    form.sourceId = undefined
+    form.sourceDeviceCode = undefined
+  }
+
+  const handleScopeChange = (scope: BMappingScope) => {
+    if (scope === 'Global') {
+      form.deviceId = undefined
+      sourceOptions.value = []
+      clearSubscriptionScope()
+      return
+    }
+    if (scope === 'Gateway') clearSubscriptionScope()
+  }
+
+  const handleDeviceChange = async () => {
+    clearSubscriptionScope()
+    await loadSourceOptions()
+  }
+
+  const handleSourceChange = () => {
+    form.sourceDeviceCode = undefined
   }
 
   const applySelectedTemplate = (templateId?: number) => {
@@ -228,6 +331,14 @@
       ElMessage.warning('请填写映射名称')
       return
     }
+    if (scopeType.value !== 'Global' && !form.deviceId) {
+      ElMessage.warning('请选择边缘节点')
+      return
+    }
+    if (scopeType.value === 'SubscriptionDevice' && (!form.sourceId || !form.sourceDeviceCode)) {
+      ElMessage.warning('请选择 WebSocket 数据源和订阅设备')
+      return
+    }
     if (!fieldMappingEditor.value?.validate()) return
     if (form.protocol === 'HTTP' ? !validateHttp() : !validateMqtt()) return
 
@@ -252,8 +363,8 @@
 
   watch(
     () => visible.value,
-    (opened) => {
-      if (opened) resetForm()
+    async (opened) => {
+      if (opened) await resetForm()
     }
   )
 

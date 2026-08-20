@@ -2,7 +2,7 @@
   <div>
     <el-alert
       title="连接配置会按设备下发"
-      description="每条连接可以订阅多台业务设备和多个参数；修改订阅时在线连接会直接重新发送订阅消息。"
+      description="每条连接可以订阅多台业务设备和多个参数；数据状态根据中心端最近收到的有效数据自动判断。"
       type="info"
       show-icon
       :closable="false"
@@ -52,7 +52,14 @@
     </div>
 
     <el-table v-loading="loading" :data="sources" height="520" stripe>
-      <el-table-column label="状态" width="86" fixed>
+      <el-table-column label="数据状态" width="112" fixed>
+        <template #default="{ row }">
+          <el-tag :type="dataStatusType(row.dataStatus)" effect="plain">
+            {{ dataStatusText(row.dataStatus) }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="启用" width="86">
         <template #default="{ row }">
           <el-switch v-model="row.enabled" @change="changeEnabled(row)" />
         </template>
@@ -72,6 +79,9 @@
         <template #default="{ row }">{{ subscriptionParameterCount(row) }} 项</template>
       </el-table-column>
       <el-table-column prop="dataType" label="数据类型" width="120" />
+      <el-table-column label="最后收到数据" width="170">
+        <template #default="{ row }">{{ formatTime(row.lastDataTime) }}</template>
+      </el-table-column>
       <el-table-column label="重连间隔" width="100" align="right">
         <template #default="{ row }">{{ row.reconnectIntervalSeconds }} 秒</template>
       </el-table-column>
@@ -94,7 +104,7 @@
       :device-id="selectedDeviceId"
       :source="editingSource"
       :duplicate="duplicateSource"
-      @saved="loadSources"
+      @saved="handleSaved"
     />
   </div>
 </template>
@@ -112,7 +122,7 @@
     type EdgeDevice,
     type EdgeWebSocketSource
   } from '@/api/edge-gateway'
-  import { fetchDeviceOptions } from './shared'
+  import { fetchDeviceOptions, formatTime } from './shared'
   import EdgeWebSocketConnectionDialog from './websocket/EdgeWebSocketConnectionDialog.vue'
 
   const sources = ref<EdgeWebSocketSource[]>([])
@@ -124,6 +134,9 @@
   const editorVisible = ref(false)
   const editingSource = ref<EdgeWebSocketSource>()
   const duplicateSource = ref(false)
+  const emit = defineEmits<{
+    'overview-changed': []
+  }>()
   const hasEnabledSources = computed(() => sources.value.some((source) => source.enabled))
 
   const loadOptions = async () => {
@@ -160,11 +173,33 @@
   const subscriptionParameterCount = (source: EdgeWebSocketSource) =>
     source.subscriptionDevices.reduce((total, device) => total + device.parameters.length, 0)
 
+  const dataStatusText = (status: EdgeWebSocketSource['dataStatus']) =>
+    ({
+      Receiving: '正常接收',
+      Interrupted: '数据中断',
+      NeverReceived: '未收到数据',
+      Disabled: '已停用'
+    })[status]
+
+  const dataStatusType = (status: EdgeWebSocketSource['dataStatus']) =>
+    ({
+      Receiving: 'success',
+      Interrupted: 'danger',
+      NeverReceived: 'warning',
+      Disabled: 'info'
+    })[status] as 'success' | 'danger' | 'warning' | 'info'
+
+  const handleSaved = async () => {
+    await loadSources()
+    emit('overview-changed')
+  }
+
   const changeEnabled = async (row: EdgeWebSocketSource) => {
     try {
       await setWebSocketSourceEnabled(row.id, row.enabled)
       ElMessage.success(row.enabled ? '连接已启用，将自动下发' : '连接已停用，将自动下发')
       await loadSources()
+      emit('overview-changed')
     } catch {
       row.enabled = !row.enabled
     }
@@ -192,7 +227,7 @@
     try {
       const result = await reconnectDeviceWebSocketSources(selectedDeviceId.value)
       ElMessage.success(
-        `已下发重新连接指令，${result.deviceCount} 台设备的 ${result.connectionCount} 个连接将在下一次心跳时重建`
+        `已下发重新连接指令，${result.deviceCount} 台设备的 ${result.connectionCount} 个连接将在下一次配置同步时重建`
       )
       await loadSources()
     } finally {
@@ -229,13 +264,14 @@
 
   const remove = async (row: EdgeWebSocketSource) => {
     await ElMessageBox.confirm(
-      `确认删除连接“${row.sourceName}”？边缘设备同步后会停止该连接。`,
+      `确认删除连接“${row.sourceName}”？配置同步后会停止该连接。`,
       '删除 WebSocket 连接',
       { type: 'warning' }
     )
     await deleteWebSocketSource(row.id)
-    ElMessage.success('连接已删除，将在设备下一次心跳时停止')
+    ElMessage.success('连接已删除，将在下一次配置同步时停止')
     await loadSources()
+    emit('overview-changed')
   }
 
   defineExpose({ refresh })

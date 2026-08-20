@@ -21,7 +21,9 @@ export const standardBSourceOptions: BSourceFieldOption[] = [
 
 export const useBSourceFields = (
   getDeviceId: () => number | undefined,
-  getDeviceCode: () => string | undefined
+  getDeviceCode: () => string | undefined,
+  getSourceId: () => string | undefined,
+  getSourceDeviceCode: () => string | undefined
 ) => {
   const deviceFieldOptions = ref<BSourceFieldOption[]>([])
   const candidatePaths = ref(new Set<string>())
@@ -103,6 +105,8 @@ export const useBSourceFields = (
     )
     const deviceId = getDeviceId()
     const deviceCode = getDeviceCode()
+    const sourceId = getSourceId()
+    const sourceDeviceCode = getSourceDeviceCode()
     if (!deviceId || !deviceCode) return
 
     loading.value = true
@@ -125,27 +129,42 @@ export const useBSourceFields = (
       }
 
       if (!hasConfiguredTargetFields && sourcesResult.status === 'fulfilled') {
-        sourcesResult.value.forEach((source) => {
-          source.subscriptionDevices.forEach((device) => {
-            device.parameters.forEach((parameter) => {
-              addDeviceField(
-                fields,
-                `values.${parameter.parameterName.trim()}`,
-                parameter.parameterNameCn?.trim()
+        sourcesResult.value
+          .filter((source) => !sourceId || source.sourceId.toLowerCase() === sourceId.toLowerCase())
+          .forEach((source) => {
+            source.subscriptionDevices
+              .filter(
+                (device) =>
+                  !sourceDeviceCode ||
+                  device.deviceCode.toLowerCase() === sourceDeviceCode.toLowerCase()
               )
-            })
+              .forEach((device) => {
+                device.parameters.forEach((parameter) => {
+                  addDeviceField(
+                    fields,
+                    `values.${parameter.parameterName.trim()}`,
+                    parameter.parameterNameCn?.trim()
+                  )
+                })
+              })
           })
-        })
       }
 
       if (queueResult.status === 'fulfilled') {
-        queueResult.value.records.forEach((record) => {
-          try {
-            collectPayloadFields(JSON.parse(record.standardPayloadJson), fields)
-          } catch {
-            // 单条历史消息异常时忽略，不影响其他候选字段。
-          }
-        })
+        queueResult.value.records
+          .filter(
+            (record) =>
+              (!sourceId || record.sourceId.toLowerCase() === sourceId.toLowerCase()) &&
+              (!sourceDeviceCode ||
+                record.sourceDeviceCode?.toLowerCase() === sourceDeviceCode.toLowerCase())
+          )
+          .forEach((record) => {
+            try {
+              collectPayloadFields(JSON.parse(record.standardPayloadJson), fields)
+            } catch {
+              // 单条历史消息异常时忽略，不影响其他候选字段。
+            }
+          })
       }
 
       deviceFieldOptions.value = [...fields.values()].sort((left, right) =>
@@ -160,7 +179,7 @@ export const useBSourceFields = (
     }
   }
 
-  watch([getDeviceId, getDeviceCode], load, { immediate: true })
+  watch([getDeviceId, getDeviceCode, getSourceId, getSourceDeviceCode], load, { immediate: true })
 
   return {
     candidatePaths,
