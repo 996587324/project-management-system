@@ -156,7 +156,15 @@ async function handleRouteGuard(
     return
   }
 
-  // 2. 检查路由初始化是否已失败（防止死循环）
+  // 2. 登录、注册和异常页属于静态路由，无需等待用户信息和动态菜单。
+  // Token 失效跳转登录页时直接放行，也可避免延迟退出期间重复触发初始化请求。
+  if (isStaticRoute(to.path)) {
+    setPageTitle(to)
+    next()
+    return
+  }
+
+  // 3. 检查路由初始化是否已失败（防止死循环）
   if (routeInitFailed) {
     // 已经失败过，直接放行到错误页面，不再重试
     if (to.matched.length > 0) {
@@ -168,7 +176,7 @@ async function handleRouteGuard(
     return
   }
 
-  // 3. 处理动态路由注册
+  // 4. 处理动态路由注册
   if (!routeRegistry?.isRegistered() && userStore.isLogin) {
     // 防止并发请求（快速连续导航场景）
     if (routeInitInProgress) {
@@ -184,12 +192,12 @@ async function handleRouteGuard(
     return
   }
 
-  // 4. 处理根路径重定向
+  // 5. 处理根路径重定向
   if (handleRootPathRedirect(to, next)) {
     return
   }
 
-  // 5. 处理已匹配的路由
+  // 6. 处理已匹配的路由
   if (to.matched.length > 0) {
     setWorktab(to)
     setPageTitle(to)
@@ -197,7 +205,7 @@ async function handleRouteGuard(
     return
   }
 
-  // 6. 未匹配到路由，跳转到 404
+  // 7. 未匹配到路由，跳转到 404
   next({ name: 'Exception404' })
 }
 
@@ -265,7 +273,7 @@ async function handleDynamicRoutes(
 
   // 显示 loading
   pendingLoading = true
-  loadingService.showLoading()
+  loadingService.showLoading('正在加载用户权限与菜单...')
 
   try {
     // 1. 获取用户信息

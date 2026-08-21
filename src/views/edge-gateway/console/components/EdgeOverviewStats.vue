@@ -1,5 +1,21 @@
 <template>
-  <section class="stats-grid">
+  <section v-if="loading" class="stats-grid" aria-label="运行概览加载中">
+    <div v-for="index in 5" :key="index" class="stat-item stat-skeleton">
+      <el-skeleton animated>
+        <template #template>
+          <div class="stat-skeleton-content">
+            <el-skeleton-item variant="circle" class="stat-skeleton-icon" />
+            <div class="stat-skeleton-lines">
+              <el-skeleton-item variant="text" class="stat-skeleton-label" />
+              <el-skeleton-item variant="h3" class="stat-skeleton-value" />
+              <el-skeleton-item variant="text" />
+            </div>
+          </div>
+        </template>
+      </el-skeleton>
+    </div>
+  </section>
+  <section v-else class="stats-grid">
     <div class="stat-item status-stat">
       <div class="stat-icon"><Connection /></div>
       <div>
@@ -62,5 +78,6 @@
 
   defineProps<{
     overview: EdgeOverview
+    loading?: boolean
   }>()
 </script>

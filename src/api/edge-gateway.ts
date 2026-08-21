@@ -304,6 +304,12 @@ export interface EdgeBAutoForwardSetting {
   updateTime?: string
 }
 
+export interface EdgeGatewayFeatureSetting {
+  enabled: boolean
+  updatedBy?: string
+  updateTime?: string
+}
+
 export interface EdgeGatewayImportFailure {
   sheetName: string
   rowIndex: number
@@ -566,6 +572,12 @@ const normalizeBAutoForwardSetting = (data: RawObject): EdgeBAutoForwardSetting 
   updateTime: value(data, 'updateTime')
 })
 
+const normalizeGatewayFeatureSetting = (data: RawObject): EdgeGatewayFeatureSetting => ({
+  enabled: Boolean(value(data, 'enabled', true)),
+  updatedBy: value(data, 'updatedBy'),
+  updateTime: value(data, 'updateTime')
+})
+
 const normalizeGatewayImportFailure = (data: RawObject): EdgeGatewayImportFailure => ({
   sheetName: value(data, 'sheetName', ''),
   rowIndex: Number(value(data, 'rowIndex', 0)),
@@ -606,6 +618,21 @@ export async function fetchEdgeOverview() {
     uploadSuccessRate: Number(value(data, 'uploadSuccessRate', 0)),
     recentEvents: value<RawObject[]>(data, 'recentEvents', []).map(normalizeEvent)
   } as EdgeOverview
+}
+
+export async function fetchEdgeGatewayFeatureSetting() {
+  const data = await request.get<RawObject>({ url: '/api/EdgeGateway/feature-setting' })
+  return normalizeGatewayFeatureSetting(data)
+}
+
+export async function saveEdgeGatewayFeatureSetting(
+  params: Pick<EdgeGatewayFeatureSetting, 'enabled' | 'updatedBy'>
+) {
+  const data = await request.post<RawObject>({
+    url: '/api/EdgeGateway/feature-setting',
+    data: params
+  })
+  return normalizeGatewayFeatureSetting(data)
 }
 
 export function getEdgeGatewayConfigurationTemplateUrl(includeData = false) {

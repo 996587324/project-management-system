@@ -6,14 +6,29 @@
         <span>最后刷新 {{ lastRefreshTime || '-' }}</span>
       </div>
       <div class="page-header-actions">
-        <el-button :icon="Download" @click="downloadConfiguration(false)">下载模板</el-button>
-        <el-button :icon="DocumentCopy" @click="downloadConfiguration(true)">
-          导出当前配置
-        </el-button>
-        <el-button type="primary" :icon="Upload" :loading="importing" @click="selectImportFile">
-          导入配置
-        </el-button>
-        <el-button :icon="Refresh" :loading="refreshing" @click="refreshCurrent">刷新</el-button>
+        <EdgeFeatureSettingControl @state-change="handleFeatureStateChange" />
+        <template v-if="featureReady && featureEnabled">
+          <el-button
+            :icon="Download"
+            :loading="exporting === 'template'"
+            @click="downloadConfiguration(false)"
+          >
+            下载模板
+          </el-button>
+          <el-button
+            :icon="DocumentCopy"
+            :loading="exporting === 'configuration'"
+            @click="downloadConfiguration(true)"
+          >
+            导出当前配置
+          </el-button>
+          <el-button type="primary" :icon="Upload" :loading="importing" @click="selectImportFile">
+            导入配置
+          </el-button>
+          <el-button :icon="Refresh" :loading="refreshing" @click="refreshCurrent">
+            刷新
+          </el-button>
+        </template>
         <input
           ref="importInputRef"
           class="hidden-import-input"
@@ -24,38 +39,50 @@
       </div>
     </header>
 
-    <EdgeOverviewStats :overview="overview" />
+    <el-skeleton v-if="!featureReady" class="feature-page-skeleton" :rows="6" animated />
+    <el-alert
+      v-else-if="!featureEnabled"
+      class="feature-disabled-notice"
+      title="边缘计算中心当前已关闭"
+      description="采集连接、实时数据接收及自动转发已暂停，已有配置和历史数据不会被删除。"
+      type="info"
+      :closable="false"
+      show-icon
+    />
+    <template v-else>
+      <EdgeOverviewStats :overview="overview" :loading="overviewLoading" />
 
-    <el-tabs v-model="activeTab" class="gateway-tabs" @tab-change="handleTabChange">
-      <el-tab-pane label="设备管理" name="devices">
-        <EdgeDevicePanel ref="devicePanel" @overview-changed="loadOverview" />
-      </el-tab-pane>
-      <el-tab-pane label="连接配置" name="websockets">
-        <EdgeWebSocketPanel ref="webSocketPanel" @overview-changed="loadOverview" />
-      </el-tab-pane>
-      <el-tab-pane label="实时接收" name="realtime" lazy>
-        <EdgeRealtimePanel
-          ref="realtimePanel"
-          :active="activeTab === 'realtime'"
-          @show-json="showJson"
-        />
-      </el-tab-pane>
-      <el-tab-pane label="采集配置" name="configs">
-        <EdgeConfigPanel ref="configPanel" @show-json="showJson" @view-data="viewCollectedData" />
-      </el-tab-pane>
-      <el-tab-pane label="边缘规则" name="rules">
-        <EdgeRulePanel ref="rulePanel" @show-json="showJson" />
-      </el-tab-pane>
-      <el-tab-pane label="消息队列" name="queue">
-        <EdgeQueuePanel ref="queuePanel" @overview-changed="loadOverview" @show-json="showJson" />
-      </el-tab-pane>
-      <el-tab-pane label="日志中心" name="events">
-        <EdgeEventPanel ref="eventPanel" @show-json="showJson" />
-      </el-tab-pane>
-      <el-tab-pane label="B 系统适配" name="mappings">
-        <EdgeBMappingPanel ref="mappingPanel" @show-json="showJson" />
-      </el-tab-pane>
-    </el-tabs>
+      <el-tabs v-model="activeTab" class="gateway-tabs" @tab-change="handleTabChange">
+        <el-tab-pane label="设备管理" name="devices" lazy>
+          <EdgeDevicePanel ref="devicePanel" @overview-changed="loadOverview" />
+        </el-tab-pane>
+        <el-tab-pane label="连接配置" name="websockets" lazy>
+          <EdgeWebSocketPanel ref="webSocketPanel" @overview-changed="loadOverview" />
+        </el-tab-pane>
+        <el-tab-pane label="实时接收" name="realtime" lazy>
+          <EdgeRealtimePanel
+            ref="realtimePanel"
+            :active="activeTab === 'realtime'"
+            @show-json="showJson"
+          />
+        </el-tab-pane>
+        <el-tab-pane label="采集配置" name="configs" lazy>
+          <EdgeConfigPanel ref="configPanel" @show-json="showJson" @view-data="viewCollectedData" />
+        </el-tab-pane>
+        <el-tab-pane label="边缘规则" name="rules" lazy>
+          <EdgeRulePanel ref="rulePanel" @show-json="showJson" />
+        </el-tab-pane>
+        <el-tab-pane label="消息队列" name="queue" lazy>
+          <EdgeQueuePanel ref="queuePanel" @overview-changed="loadOverview" @show-json="showJson" />
+        </el-tab-pane>
+        <el-tab-pane label="日志中心" name="events" lazy>
+          <EdgeEventPanel ref="eventPanel" @show-json="showJson" />
+        </el-tab-pane>
+        <el-tab-pane label="B 系统适配" name="mappings" lazy>
+          <EdgeBMappingPanel ref="mappingPanel" @show-json="showJson" />
+        </el-tab-pane>
+      </el-tabs>
+    </template>
 
     <EdgeJsonDialog
       v-model="jsonDialogVisible"
@@ -125,6 +152,7 @@
   import EdgeConfigPanel from './components/EdgeConfigPanel.vue'
   import EdgeDevicePanel from './components/EdgeDevicePanel.vue'
   import EdgeEventPanel from './components/EdgeEventPanel.vue'
+  import EdgeFeatureSettingControl from './components/EdgeFeatureSettingControl.vue'
   import EdgeJsonDialog from './components/EdgeJsonDialog.vue'
   import EdgeOverviewStats from './components/EdgeOverviewStats.vue'
   import EdgeQueuePanel from './components/EdgeQueuePanel.vue'
@@ -132,6 +160,7 @@
   import EdgeRulePanel from './components/EdgeRulePanel.vue'
   import EdgeWebSocketPanel from './components/EdgeWebSocketPanel.vue'
   import type { JsonDialogPayload, RefreshablePanel } from './components/shared'
+  import { downloadResponseStream } from '@/utils/file/stream-download'
 
   type QueuePanelExpose = RefreshablePanel & {
     showForDevice: (deviceCode: string) => Promise<void>
@@ -158,7 +187,11 @@
 
   const activeTab = ref('devices')
   const refreshing = ref(false)
+  const overviewLoading = ref(true)
+  const featureReady = ref(false)
+  const featureEnabled = ref(true)
   const importing = ref(false)
+  const exporting = ref<'template' | 'configuration' | null>(null)
   const lastRefreshTime = ref('')
   const overview = reactive<EdgeOverview>(emptyOverview())
   const userStore = useUserStore()
@@ -182,12 +215,14 @@
   let autoRefreshTimer: number | undefined
 
   const loadOverview = (): Promise<void> => {
+    if (!featureReady.value || !featureEnabled.value) return Promise.resolve()
     if (overviewRequest) return overviewRequest
 
     overviewRequest = (async () => {
       try {
         Object.assign(overview, await fetchEdgeOverview())
       } finally {
+        overviewLoading.value = false
         overviewRequest = null
       }
     })()
@@ -195,6 +230,7 @@
   }
 
   const refreshOverviewAutomatically = async () => {
+    if (!featureReady.value || !featureEnabled.value) return
     try {
       await Promise.all([
         loadOverview(),
@@ -221,6 +257,7 @@
   }
 
   const refreshCurrent = async () => {
+    if (!featureReady.value || !featureEnabled.value) return
     refreshing.value = true
     try {
       await Promise.all([loadOverview(), currentPanel()?.refresh()])
@@ -231,6 +268,7 @@
   }
 
   const handleTabChange = async (name: string | number) => {
+    if (!featureEnabled.value) return
     activeTab.value = String(name)
     await nextTick()
     await refreshCurrent()
@@ -249,15 +287,43 @@
     lastRefreshTime.value = new Date().toLocaleString()
   }
 
-  const downloadConfiguration = (includeData: boolean) => {
-    const link = document.createElement('a')
-    link.href = getEdgeGatewayConfigurationTemplateUrl(includeData)
-    link.download = includeData
+  const handleFeatureStateChange = async (enabled: boolean) => {
+    featureEnabled.value = enabled
+    featureReady.value = true
+    if (!enabled) {
+      Object.assign(overview, emptyOverview())
+      overviewLoading.value = false
+      lastRefreshTime.value = ''
+      return
+    }
+
+    overviewLoading.value = true
+    await nextTick()
+    await refreshCurrent().catch(() => undefined)
+  }
+
+  const downloadConfiguration = async (includeData: boolean) => {
+    if (exporting.value) return
+
+    exporting.value = includeData ? 'configuration' : 'template'
+    const fileName = includeData
       ? `边缘网关当前配置-${new Date().toISOString().slice(0, 10)}.xlsx`
       : '边缘网关配置导入模板.xlsx'
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
+    try {
+      const result = await downloadResponseStream({
+        url: getEdgeGatewayConfigurationTemplateUrl(includeData),
+        fileName,
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        accessToken: userStore.accessToken,
+        withCredentials: import.meta.env.VITE_WITH_CREDENTIALS === 'true'
+      })
+      if (result === 'completed') ElMessage.success('配置文件导出完成')
+      if (result === 'started') ElMessage.success('配置文件已开始下载')
+    } catch (error) {
+      ElMessage.error(error instanceof Error ? error.message : '配置文件导出失败')
+    } finally {
+      exporting.value = null
+    }
   }
 
   const selectImportFile = () => importInputRef.value?.click()
@@ -299,7 +365,6 @@
   }
 
   onMounted(() => {
-    void refreshCurrent().catch(() => undefined)
     autoRefreshTimer = window.setInterval(
       () => void refreshOverviewAutomatically(),
       AUTO_REFRESH_INTERVAL_MS

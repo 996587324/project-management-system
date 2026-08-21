@@ -60,12 +60,13 @@ export const loadingService = {
    * 显示 loading
    * @returns 关闭 loading 的函数
    */
-  showLoading(): () => void {
+  showLoading(text = '正在加载，请稍候...'): () => void {
     if (!loadingInstance) {
       // 每次显示时获取最新的配置，确保背景色与当前主题同步
       const config = {
         ...DEFAULT_LOADING_CONFIG,
-        background: getLoadingBackground()
+        background: getLoadingBackground(),
+        text
       }
       loadingInstance = ElLoading.service(config)
     }

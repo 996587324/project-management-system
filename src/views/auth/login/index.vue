@@ -94,7 +94,7 @@
   import { useUserStore } from '@/store/modules/user'
   import { useI18n } from 'vue-i18n'
   import { HttpError } from '@/utils/http/error'
-  import { fetchGetUserInfo, fetchLogin } from '@/api/auth'
+  import { fetchLogin } from '@/api/auth'
   import { ElNotification, type FormInstance, type FormRules } from 'element-plus'
   import { useSettingStore } from '@/store/modules/setting'
 
@@ -192,15 +192,13 @@
         userName: username,
         password
       })
-      console.log('Login successful, token:', token, 'refreshToken:', refreshToken)
       // 验证token
       if (!token) {
         throw new Error('Login failed - no token received')
       }
 
-      // 存储 token 和登录状态
+      // 登录接口成功后立即进入系统初始化阶段，用户信息和菜单由路由守卫统一加载一次。
       userStore.setToken(token, refreshToken)
-      userStore.setUserInfo(await fetchGetUserInfo())
       userStore.setLoginStatus(true)
       syncRememberedAccount()
 
@@ -209,7 +207,7 @@
 
       // 获取 redirect 参数，如果存在则跳转到指定页面，否则跳转到首页
       const redirect = route.query.redirect as string
-      router.push(redirect || '/')
+      await router.replace(redirect || '/')
     } catch (error) {
       // 处理 HttpError
       if (error instanceof HttpError) {

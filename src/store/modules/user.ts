@@ -168,8 +168,9 @@ export const useUserStore = defineStore(
       resetRouterState(500)
       // 跳转到登录页，携带当前路由作为 redirect 参数
       const currentRoute = router.currentRoute.value
-      const redirect = currentRoute.path !== '/login' ? currentRoute.fullPath : undefined
-      router.push({
+      // 登录页真实地址为 /auth/login，按路由名称判断可避免失效 Token 导致 redirect 自嵌套。
+      const redirect = currentRoute.name !== 'Login' ? currentRoute.fullPath : undefined
+      router.replace({
         name: 'Login',
         query: redirect ? { redirect } : undefined
       })
