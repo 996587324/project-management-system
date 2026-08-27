@@ -5,12 +5,14 @@ import { resultRoutes } from './result'
 import { exceptionRoutes } from './exception'
 import { agentRoutes } from './agent'
 import { edgeGatewayRoutes } from './edge-gateway'
+import { productionDashboardRoutes } from './production-dashboard'
 
 /**
  * 导出所有模块化路由
  */
 export const routeModules: AppRouteRecord[] = [
   dashboardRoutes,
+  productionDashboardRoutes,
   edgeGatewayRoutes,
   agentRoutes,
   systemRoutes,

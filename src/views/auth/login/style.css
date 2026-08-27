@@ -1,5 +1,20 @@
 @reference '@styles/core/tailwind.css';
 
+.auth-page {
+  display: flex;
+  width: 100%;
+  height: 100dvh;
+  min-height: 520px;
+  overflow: hidden;
+}
+
+.auth-page__content {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
 /* 授权页右侧区域 */
 .auth-right-wrap {
   @apply absolute inset-0 w-[440px] h-[650px] py-[5px] m-auto overflow-hidden
@@ -7,8 +22,18 @@
     animate-[slideInRight_0.6s_cubic-bezier(0.25,0.46,0.45,0.94)_forwards]
     max-md:animate-none;
 
+  width: min(440px, calc(100% - 48px));
+  height: fit-content;
+  max-height: calc(100dvh - 88px);
+  overflow: hidden auto;
+  scrollbar-color: var(--art-gray-400) transparent;
+  scrollbar-width: thin;
+
   .form {
     @apply h-full py-[40px];
+
+    height: auto;
+    padding-block: clamp(24px, 5vh, 40px);
   }
 
   .title {
@@ -21,6 +46,42 @@
 
   .custom-height {
     @apply !h-[40px];
+  }
+}
+
+@media (height <= 760px) {
+  .auth-right-wrap {
+    max-height: calc(100dvh - 68px);
+
+    .form {
+      padding-block: 22px;
+    }
+
+    .title {
+      font-size: 30px;
+    }
+
+    :deep(.el-form) {
+      margin-top: 18px !important;
+    }
+  }
+}
+
+@media (width <= 980px) {
+  .auth-page__content {
+    width: 100%;
+  }
+}
+
+@media (width <= 640px) {
+  .auth-page {
+    min-height: 480px;
+  }
+
+  .auth-right-wrap {
+    width: 100%;
+    max-height: calc(100dvh - 72px);
+    padding-inline: 28px;
   }
 }
 

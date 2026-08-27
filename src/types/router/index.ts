@@ -60,6 +60,8 @@ export interface RouteMeta extends Record<string | number | symbol, unknown> {
   activePath?: string
   /** 是否为全屏页面 */
   isFullPage?: boolean
+  /** 是否为无需登录的公开只读看板 */
+  publicReadOnly?: boolean
   /** 是否为权限按钮行 */
   isAuthButton?: boolean
   /** 权限标识 */

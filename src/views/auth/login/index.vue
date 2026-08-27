@@ -1,9 +1,9 @@
 <!-- 登录页面 -->
 <template>
-  <div class="flex w-full h-screen">
+  <div class="auth-page">
     <LoginLeftView />
 
-    <div class="relative flex-1">
+    <div class="auth-page__content">
       <AuthTopBar />
 
       <div class="auth-right-wrap">

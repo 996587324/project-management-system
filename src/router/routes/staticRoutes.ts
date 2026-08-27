@@ -37,6 +37,17 @@ export const staticRoutes: AppRouteRecordRaw[] = [
     meta: { title: 'menus.forgetPassword.title', isHideTab: true }
   },
   {
+    path: '/public/production-dashboard',
+    name: 'PublicProductionDashboard',
+    component: () => import('@views/production-dashboard/board/index.vue'),
+    meta: {
+      title: '生产监控看板',
+      isHideTab: true,
+      isFullPage: true,
+      publicReadOnly: true
+    }
+  },
+  {
     path: '/403',
     name: 'Exception403',
     component: () => import('@views/exception/403/index.vue'),

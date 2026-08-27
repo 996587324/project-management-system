@@ -14,7 +14,7 @@
       <h1> {{ $t('login.leftView.title') }} </h1>
       <p> {{ $t('login.leftView.subTitle') }} </p>
     </div> -->
-        <!-- 几何装饰元素 -->
+    <!-- 几何装饰元素 -->
     <div class="geometric-decorations">
       <!-- 基础几何形状 -->
       <div class="geo-element circle-outline animate-fade-in-up" style="animation-delay: 0s"></div>
@@ -66,7 +66,6 @@
         ></i>
       </div>
     </div>
-
   </div>
 </template>
 
@@ -97,7 +96,8 @@
   .login-left-view {
     position: relative;
     box-sizing: border-box;
-    width: 65vw;
+    flex: 0 1 auto;
+    width: clamp(620px, 65vw, 1400px);
     height: 100%;
     padding: 15px;
     overflow: hidden;
@@ -118,11 +118,22 @@
 
     .left-img {
       position: absolute;
-      inset: 0 0 10.5%;
+      inset: clamp(72px, 8vh, 110px) clamp(28px, 5vw, 84px) clamp(28px, 7vh, 88px);
       z-index: 10;
-      width: 40%;
-      margin: auto;
+      display: grid;
+      place-items: center;
+      width: auto;
+      margin: 0;
       animation: slideInLeft 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+
+      :deep(.theme-svg) {
+        width: min(72%, 720px) !important;
+        height: min(86%, 740px) !important;
+      }
+
+      :deep(svg) {
+        transition: filter 0.3s ease;
+      }
     }
 
     .text-wrap {
@@ -155,6 +166,7 @@
       }
 
       // 动画 mixin
+      /* stylelint-disable at-rule-empty-line-before */
       @mixin fadeAnimation($direction: '', $rotation: 0deg) {
         from {
           opacity: 0;
@@ -180,6 +192,7 @@
           }
         }
       }
+      /* stylelint-enable at-rule-empty-line-before */
 
       // 动画定义
       @keyframes fadeInUp {
@@ -484,21 +497,37 @@
       }
     }
 
-    .left-img {
-      :deep(svg) {
-        transition: filter 0.3s ease;
-      }
-    }
-
     @media only screen and (width <= 1600px) {
-      width: 60vw;
+      width: clamp(520px, 58vw, 960px);
 
       .text-wrap {
         bottom: 40px;
       }
     }
 
-    @media only screen and (width <= 1180px) {
+    @media only screen and (resolution >= 1.1dppx) and (width > 980px) {
+      .left-img {
+        inset: clamp(66px, 7vh, 92px) clamp(20px, 3vw, 46px) clamp(20px, 5vh, 54px);
+
+        :deep(.theme-svg) {
+          width: min(78%, 660px) !important;
+          height: min(90%, 680px) !important;
+        }
+      }
+    }
+
+    @media only screen and (height <= 700px) and (width > 980px) {
+      .left-img {
+        inset-block: 62px 18px;
+
+        :deep(.theme-svg) {
+          width: min(70%, 580px) !important;
+          height: min(88%, 560px) !important;
+        }
+      }
+    }
+
+    @media only screen and (width <= 980px) {
       width: auto;
       height: auto;
       padding: 0;
@@ -527,7 +556,7 @@
       }
     }
 
-    @media only screen and (width <= 1180px) {
+    @media only screen and (width <= 980px) {
       background: transparent;
     }
 

@@ -19,6 +19,16 @@ export const agentRoutes: AppRouteRecord = {
         keepAlive: true,
         roles: ['R_SUPER', 'R_ADMIN', 'R_ENGINEER']
       }
+    },
+    {
+      path: 'edge-gateway',
+      name: 'EdgeGatewayAgent',
+      component: '/agent/edge-gateway',
+      meta: {
+        title: '边缘计算助手',
+        keepAlive: true,
+        roles: ['R_SUPER', 'R_ADMIN', 'R_ENGINEER']
+      }
     }
   ]
 }

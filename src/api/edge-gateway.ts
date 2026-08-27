@@ -280,6 +280,15 @@ export interface EdgeBMapping {
   updateTime?: string
 }
 
+export interface EdgeBMappingQuery {
+  current: number
+  size: number
+  keyword?: string
+  deviceId?: number
+  protocol?: EdgeBTransportProtocol
+  enabled?: boolean
+}
+
 export interface EdgeBPayloadTemplate {
   id: number
   templateCode: string
@@ -834,6 +843,15 @@ export async function fetchEdgeEvents(params: RawObject) {
 export async function fetchEdgeBMappings() {
   const data = await request.get<RawObject[]>({ url: '/api/EdgeGateway/b-mappings' })
   return data.map(normalizeBMapping)
+}
+
+/** 管理端按关键字、设备、协议和状态分页查询 B 系统映射。 */
+export async function fetchEdgeBMappingPage(params: EdgeBMappingQuery) {
+  const data = await request.get<RawObject>({
+    url: '/api/EdgeGateway/b-mappings/page',
+    params
+  })
+  return normalizePage(data, normalizeBMapping)
 }
 
 export function saveEdgeBMapping(params: EdgeBMapping) {

@@ -4,8 +4,8 @@
       <aside class="agent-sidebar">
         <div class="sidebar-header">
           <div v-show="!sidebarCollapsed">
-            <h3>项目管理助手</h3>
-            <p>项目管理智能助手</p>
+            <h3>{{ assistantTitle }}</h3>
+            <p>{{ sidebarDescription }}</p>
           </div>
           <div class="sidebar-actions">
             <ElTooltip :content="sidebarCollapsed ? '展开会话栏' : '收起会话栏'" placement="right">
@@ -22,6 +22,7 @@
         </div>
 
         <ElSelect
+          v-if="isProjectAgent"
           v-show="!sidebarCollapsed"
           v-model="scopeProjectName"
           clearable
@@ -67,11 +68,11 @@
         <section class="chat-panel">
           <header class="panel-header">
             <div>
-              <h2>项目 Agent</h2>
-              <p>可查询项目概况、任务风险、文件归档，并生成待确认执行计划。</p>
+              <h2>{{ panelTitle }}</h2>
+              <p>{{ panelDescription }}</p>
             </div>
             <div class="panel-header-actions">
-              <ElButton :icon="Message" plain @click="openLatestReplyEmailDialog"
+              <ElButton v-if="enableEmail" :icon="Message" plain @click="openLatestReplyEmailDialog"
                 >发送当前回复</ElButton
               >
               <ElTag type="primary" effect="plain">LLM 自主选工具</ElTag>
@@ -108,10 +109,7 @@
                 </template>
               </div>
             </article>
-            <ElEmpty
-              v-if="!messages.length && !sending"
-              description="输入一个问题，让 项目管理助手 帮你看项目状态。"
-            />
+            <ElEmpty v-if="!messages.length && !sending" :description="emptyDescription" />
           </div>
 
           <div v-if="latestPlan.length" class="plan-panel">
@@ -127,7 +125,7 @@
           </div>
 
           <div class="composer">
-            <div v-if="selectedFile" class="selected-file">
+            <div v-if="allowProjectCsv && selectedFile" class="selected-file">
               <div class="selected-file-info">
                 <ElIcon><Upload /></ElIcon>
                 <span :title="selectedFile.name">{{ selectedFile.name }}</span>
@@ -142,13 +140,14 @@
               type="textarea"
               :rows="3"
               resize="none"
-              placeholder="例如：帮我看一下当前项目风险，或者生成一份本周项目周报"
+              :placeholder="composerPlaceholder"
               @keydown="handleComposerKeydown"
             />
             <div class="composer-actions">
               <span>Enter 发送，Shift + Enter 换行。写入操作需确认后执行。</span>
               <div class="composer-buttons">
                 <ElButton
+                  v-if="allowProjectCsv"
                   :icon="Upload"
                   :loading="fileLoading"
                   :disabled="sending"
@@ -166,6 +165,7 @@
                 </ElButton>
               </div>
               <input
+                v-if="allowProjectCsv"
                 ref="fileInputRef"
                 class="agent-file-input"
                 type="file"
@@ -203,7 +203,9 @@
                 <pre>{{ formatJson(call.responseJson) }}</pre>
                 <ElButton
                   v-if="
-                    call.status === 'PendingConfirm' && call.requiresConfirmation && !call.confirmed
+                    call.status === 'PendingConfirm' &&
+                    call.requiresConfirmation &&
+                    (!call.confirmed || call.agentCode === 'edge-gateway')
                   "
                   type="warning"
                   size="small"
@@ -211,7 +213,13 @@
                 >
                   {{ call.toolName === 'project.create' ? '确认新增' : '确认执行' }}
                 </ElButton>
-                <ElButton size="small" plain :icon="Message" @click="openToolEmailDialog(call)">
+                <ElButton
+                  v-if="enableEmail"
+                  size="small"
+                  plain
+                  :icon="Message"
+                  @click="openToolEmailDialog(call)"
+                >
                   发送邮件
                 </ElButton>
               </div>
@@ -237,7 +245,7 @@
             :loading="emailUserLoading"
             placeholder="选择用户邮箱或输入邮箱"
             style="width: 100%"
-            @focus="loadEmailUsers"
+            @focus="() => loadEmailUsers()"
           >
             <ElOption
               v-for="item in emailUserOptions"
@@ -261,7 +269,7 @@
             :loading="emailUserLoading"
             placeholder="选择抄送人或输入邮箱"
             style="width: 100%"
-            @focus="loadEmailUsers"
+            @focus="() => loadEmailUsers()"
           >
             <ElOption
               v-for="item in emailUserOptions"
@@ -307,20 +315,47 @@
 
   defineOptions({ name: 'AgentExecutor' })
 
+  interface AgentExecutorProps {
+    agentCode?: string
+    assistantTitle?: string
+    sidebarDescription?: string
+    panelTitle?: string
+    panelDescription?: string
+    emptyDescription?: string
+    composerPlaceholder?: string
+    allowProjectCsv?: boolean
+    enableEmail?: boolean
+    initialSuggestions?: string[]
+  }
+
+  const props = withDefaults(defineProps<AgentExecutorProps>(), {
+    agentCode: 'project-management',
+    assistantTitle: '项目管理助手',
+    sidebarDescription: '项目管理智能助手',
+    panelTitle: '项目 Agent',
+    panelDescription: '可查询项目概况、任务风险、文件归档，并生成待确认执行计划。',
+    emptyDescription: '输入一个问题，让项目管理助手帮你查看项目状态。',
+    composerPlaceholder: '例如：帮我看一下当前项目风险，或者生成一份本周项目周报',
+    allowProjectCsv: true,
+    enableEmail: true,
+    initialSuggestions: () => [
+      '帮我看一下当前项目风险',
+      '帮我新增一个项目',
+      '批量导入项目文件',
+      '生成一份本周项目周报',
+      '统计项目文件归档情况'
+    ]
+  })
+
   const userStore = useUserStore()
+  const isProjectAgent = computed(() => props.agentCode === 'project-management')
   const projects = ref<Api.ProjectManage.ProjectItem[]>([])
   const conversations = ref<Api.Agent.Conversation[]>([])
   const messages = ref<Api.Agent.Message[]>([])
   const tools = ref<Api.Agent.ToolDefinition[]>([])
   const toolCalls = ref<Api.Agent.ToolCall[]>([])
   const latestPlan = ref<Api.Agent.PlanStep[]>([])
-  const suggestions = ref<string[]>([
-    '帮我看一下当前项目风险',
-    '帮我新增一个项目',
-    '批量导入项目文件',
-    '生成一份本周项目周报',
-    '统计项目文件归档情况'
-  ])
+  const suggestions = ref<string[]>([...props.initialSuggestions])
   const activeConversationId = ref<number>()
   const scopeProjectName = ref<string>()
   const sidebarCollapsed = ref(false)
@@ -351,7 +386,10 @@
   )
 
   const loadBaseData = async () => {
-    const [projectList, toolList] = await Promise.all([fetchProjectList(), fetchAgentTools()])
+    const [projectList, toolList] = await Promise.all([
+      isProjectAgent.value ? fetchProjectList() : Promise.resolve([]),
+      fetchAgentTools(props.agentCode)
+    ])
     projects.value = projectList
     tools.value = toolList
     await loadConversations()
@@ -363,7 +401,8 @@
       const data = await fetchAgentConversations({
         userId: currentUserId.value,
         current: 1,
-        size: 20
+        size: 20,
+        agentCode: props.agentCode
       })
       conversations.value = data.records || []
     } finally {
@@ -473,9 +512,10 @@
       const response = await streamAgentMessage(
         {
           conversationId: activeConversationId.value,
+          agentCode: props.agentCode,
           message: text,
           userId: currentUserId.value,
-          scopeProjectName: scopeProjectName.value,
+          scopeProjectName: isProjectAgent.value ? scopeProjectName.value : undefined,
           mode: 'Online',
           ...attachment
         },
@@ -521,10 +561,12 @@
       await loadConversations()
       await nextTick(scrollAllMessagesToBottom)
     } catch (error) {
-      ElMessage.error(error instanceof Error ? error.message : '项目管理助手 处理失败，请重试')
+      ElMessage.error(
+        error instanceof Error ? error.message : `${props.assistantTitle} 处理失败，请重试`
+      )
     } finally {
       sending.value = false
-      sendingStatus.value = '正在连接 项目管理助手'
+      sendingStatus.value = `正在连接 ${props.assistantTitle}`
       streamingReply.value = ''
       await nextTick(scrollAllMessagesToBottom)
     }
@@ -545,7 +587,7 @@
     input.value = ''
     if (!file) return
     if (sending.value) {
-      ElMessage.warning('请等待当前 项目管理助手 请求完成')
+      ElMessage.warning(`请等待当前${props.assistantTitle}请求完成`)
       return
     }
     if (!file.name.toLowerCase().endsWith('.csv')) {
@@ -566,7 +608,7 @@
   }
 
   const refreshProjects = async () => {
-    projects.value = await fetchProjectList()
+    if (isProjectAgent.value) projects.value = await fetchProjectList()
   }
 
   let emailSearchTimer: ReturnType<typeof setTimeout> | undefined

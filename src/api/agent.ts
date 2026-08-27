@@ -3,6 +3,7 @@ import { useUserStore } from '@/store/modules/user'
 
 type RawConversation = Api.Agent.Conversation & {
   Id?: number
+  AgentCode?: string
   UserId?: string
   Title?: string
   ScopeProjectName?: string
@@ -31,6 +32,7 @@ type RawPlanStep = Api.Agent.PlanStep & {
 type RawToolCall = Api.Agent.ToolCall & {
   Id?: number
   ConversationId?: number
+  AgentCode?: string
   ToolName?: string
   ToolTitle?: string
   RequestJson?: string
@@ -42,11 +44,13 @@ type RawToolCall = Api.Agent.ToolCall & {
 }
 
 type RawToolDefinition = Api.Agent.ToolDefinition & {
+  AgentCode?: string
   Name?: string
   Title?: string
   Description?: string
   IsWriteAction?: boolean
   RequiresConfirmation?: boolean
+  Enabled?: boolean
 }
 
 type RawConversationList = Api.Agent.ConversationList & {
@@ -89,6 +93,7 @@ type RawEmailSendResult = Api.Agent.EmailSendResult & {
 function normalizeConversation(item: RawConversation): Api.Agent.Conversation {
   return {
     id: Number(item.id ?? item.Id ?? 0),
+    agentCode: item.agentCode ?? item.AgentCode ?? 'project-management',
     userId: item.userId ?? item.UserId ?? '',
     title: item.title ?? item.Title ?? 'Agent 会话',
     scopeProjectName: item.scopeProjectName ?? item.ScopeProjectName,
@@ -123,6 +128,7 @@ function normalizeToolCall(item: RawToolCall): Api.Agent.ToolCall {
   return {
     id: Number(item.id ?? item.Id ?? 0),
     conversationId: Number(item.conversationId ?? item.ConversationId ?? 0),
+    agentCode: item.agentCode ?? item.AgentCode ?? 'project-management',
     toolName: item.toolName ?? item.ToolName ?? '',
     toolTitle: item.toolTitle ?? item.ToolTitle ?? '',
     requestJson: item.requestJson ?? item.RequestJson ?? '',
@@ -136,11 +142,13 @@ function normalizeToolCall(item: RawToolCall): Api.Agent.ToolCall {
 
 function normalizeToolDefinition(item: RawToolDefinition): Api.Agent.ToolDefinition {
   return {
+    agentCode: item.agentCode ?? item.AgentCode ?? 'project-management',
     name: item.name ?? item.Name ?? '',
     title: item.title ?? item.Title ?? '',
     description: item.description ?? item.Description ?? '',
     isWriteAction: Boolean(item.isWriteAction ?? item.IsWriteAction ?? false),
-    requiresConfirmation: Boolean(item.requiresConfirmation ?? item.RequiresConfirmation ?? false)
+    requiresConfirmation: Boolean(item.requiresConfirmation ?? item.RequiresConfirmation ?? false),
+    enabled: Boolean(item.enabled ?? item.Enabled ?? true)
   }
 }
 
@@ -197,6 +205,7 @@ export async function fetchAgentConversations(params?: {
   userId?: number | string
   current?: number
   size?: number
+  agentCode?: string
 }) {
   const data = await request.get<RawConversationList>({
     url: '/api/Agent/conversations',
@@ -436,9 +445,10 @@ export async function sendAgentEmail(params: Api.Agent.EmailSendRequest) {
   return normalizeEmailSendResult(data)
 }
 
-export async function fetchAgentTools() {
+export async function fetchAgentTools(agentCode = 'project-management') {
   const data = await request.get<RawToolDefinition[]>({
-    url: '/api/Agent/tools'
+    url: '/api/Agent/tools',
+    params: { agentCode }
   })
   return data.map(normalizeToolDefinition)
 }

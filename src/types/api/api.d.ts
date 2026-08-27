@@ -448,6 +448,7 @@ declare namespace Api {
     type ConversationList = Api.Common.PaginatedResponse<Conversation>
 
     interface StartRequest {
+      agentCode?: string
       userId?: number | string
       title?: string
       scopeProjectName?: string
@@ -455,6 +456,7 @@ declare namespace Api {
     }
 
     interface SendRequest {
+      agentCode?: string
       conversationId?: number
       message: string
       userId?: number | string
@@ -480,6 +482,7 @@ declare namespace Api {
 
     interface Conversation {
       id: number
+      agentCode: string
       userId: string
       title: string
       scopeProjectName?: string
@@ -508,6 +511,7 @@ declare namespace Api {
     interface ToolCall {
       id: number
       conversationId: number
+      agentCode: string
       toolName: string
       toolTitle: string
       requestJson: string
@@ -519,11 +523,13 @@ declare namespace Api {
     }
 
     interface ToolDefinition {
+      agentCode: string
       name: string
       title: string
       description: string
       isWriteAction: boolean
       requiresConfirmation: boolean
+      enabled?: boolean
     }
 
     interface Response {
