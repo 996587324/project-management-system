@@ -158,6 +158,12 @@ export interface EnvConfig {
   VITE_BASE_URL: string
   // API 地址
   VITE_API_URL: string
+  // API 路径前缀（开发代理使用）
+  VITE_API_PREFIX?: string
+  // WebSocket 基础地址
+  VITE_WS_URL: string
+  // 开发环境 WebSocket 代理目标
+  VITE_WS_PROXY_URL?: string
   // 是否开启 Mock
   VITE_USE_MOCK?: string
   // 是否开启压缩

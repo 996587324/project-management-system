@@ -12,6 +12,7 @@
         :line-code="lineCode"
         :default-column-span="defaultColumnSpan"
         :public-access="publicAccess"
+        @view-details="emit('view-details', $event)"
       />
     </div>
   </section>
@@ -20,6 +21,8 @@
 <script setup lang="ts">
   import DashboardWidgetRenderer from '@/views/production-dashboard/components/DashboardWidgetRenderer.vue'
   import type { DashboardWidget } from '@/api/edge-dashboard'
+
+  const emit = defineEmits<{ 'view-details': [widget: DashboardWidget] }>()
 
   withDefaults(
     defineProps<{

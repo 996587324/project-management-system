@@ -64,7 +64,6 @@
   import { useRouter } from 'vue-router'
   import { ElMessageBox } from 'element-plus'
   import { useUserStore } from '@/store/modules/user'
-  import { WEB_LINKS } from '@/utils/constants'
   import { mittBus } from '@/utils/sys'
 
   defineOptions({ name: 'ArtUserMenu' })
@@ -85,20 +84,6 @@
   }
 
   /**
-   * 打开文档页面
-   */
-  const toDocs = (): void => {
-    window.open(WEB_LINKS.DOCS)
-  }
-
-  /**
-   * 打开 GitHub 页面
-   */
-  const toGithub = (): void => {
-    window.open(WEB_LINKS.GITHUB)
-  }
-
-  /**
    * 打开锁屏功能
    */
   const lockScreen = (): void => {
@@ -116,7 +101,7 @@
         cancelButtonText: t('common.cancel'),
         customClass: 'login-out-dialog'
       }).then(() => {
-        userStore.logOut()
+        userStore.logOut({ sso: true })
       })
     }, 200)
   }

@@ -45,6 +45,15 @@
         >
           全部重连
         </el-button>
+        <el-button
+          type="danger"
+          plain
+          :loading="disablingAll"
+          :disabled="!deviceOptions.length || reconnectingAll || reconnectingDevice"
+          @click="disableAllConnections"
+        >
+          全部停用
+        </el-button>
         <el-button type="primary" :icon="Plus" :disabled="!selectedDeviceId" @click="openEditor()">
           新增连接
         </el-button>
@@ -115,6 +124,7 @@
   import { Plus, RefreshRight } from '@element-plus/icons-vue'
   import {
     deleteWebSocketSource,
+    disableAllWebSocketSources,
     fetchWebSocketSources,
     reconnectAllWebSocketSources,
     reconnectDeviceWebSocketSources,
@@ -131,6 +141,7 @@
   const loading = ref(false)
   const reconnectingDevice = ref(false)
   const reconnectingAll = ref(false)
+  const disablingAll = ref(false)
   const editorVisible = ref(false)
   const editingSource = ref<EdgeWebSocketSource>()
   const duplicateSource = ref(false)
@@ -238,7 +249,7 @@
   const reconnectAllDevices = async () => {
     try {
       await ElMessageBox.confirm(
-        '将重新建立所有设备中已启用的 WebSocket 连接，是否继续？',
+        '将重新建立所有设备中已启用的 WebSocket 连接。每条连接的订阅报文会间隔 2 秒发送，是否继续？',
         '全部重新连接',
         { type: 'warning', confirmButtonText: '全部重新连接', cancelButtonText: '取消' }
       )
@@ -254,11 +265,39 @@
         return
       }
       ElMessage.success(
-        `已下发重新连接指令，共 ${result.deviceCount} 台设备、${result.connectionCount} 个连接`
+        `已下发重新连接指令，共 ${result.deviceCount} 台设备、${result.connectionCount} 个连接；订阅报文将按 2 秒间隔发送`
       )
       await loadSources()
     } finally {
       reconnectingAll.value = false
+    }
+  }
+
+  const disableAllConnections = async () => {
+    try {
+      await ElMessageBox.confirm(
+        '将停用所有设备中已启用的 WebSocket 连接。配置不会删除，在线边缘节点会在下一次同步时关闭连接，是否继续？',
+        '全部停用连接',
+        { type: 'warning', confirmButtonText: '全部停用', cancelButtonText: '取消' }
+      )
+    } catch {
+      return
+    }
+
+    disablingAll.value = true
+    try {
+      const result = await disableAllWebSocketSources()
+      if (!result.connectionCount) {
+        ElMessage.warning('当前没有已启用的 WebSocket 连接')
+        return
+      }
+      ElMessage.success(
+        `已停用 ${result.deviceCount} 台设备的 ${result.connectionCount} 个连接，将在下一次配置同步时关闭`
+      )
+      await loadSources()
+      emit('overview-changed')
+    } finally {
+      disablingAll.value = false
     }
   }
 

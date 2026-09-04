@@ -42,6 +42,12 @@ import { setPageTitle } from '@/utils/router'
 import { resetRouterState } from '@/router/guards/beforeEach'
 import { useMenuStore } from './menu'
 import { StorageConfig } from '@/utils/storage/storage-config'
+import { getOAuth2LogoutUrl } from '@/utils/auth/oauth2'
+
+interface LogoutOptions {
+  /** 用户主动退出时同步结束统一身份平台会话，便于切换账号。 */
+  sso?: boolean
+}
 
 /**
  * 用户状态管理
@@ -140,7 +146,7 @@ export const useUserStore = defineStore(
      * 清空所有用户相关状态并跳转到登录页
      * 如果是同一账号重新登录，保留工作台标签页
      */
-    const logOut = () => {
+    const logOut = (options: LogoutOptions = {}) => {
       // 保存当前用户 ID，用于下次登录时判断是否为同一用户
       const currentUserId = info.value.userId
       if (currentUserId) {
@@ -170,6 +176,10 @@ export const useUserStore = defineStore(
       const currentRoute = router.currentRoute.value
       // 登录页真实地址为 /auth/login，按路由名称判断可避免失效 Token 导致 redirect 自嵌套。
       const redirect = currentRoute.name !== 'Login' ? currentRoute.fullPath : undefined
+      if (options.sso) {
+        window.location.assign(getOAuth2LogoutUrl())
+        return
+      }
       router.replace({
         name: 'Login',
         query: redirect ? { redirect } : undefined

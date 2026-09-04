@@ -59,8 +59,10 @@
           :robots="robots"
           :layout="layout"
           :selected-id="selectedId"
+          :selected-layout="selectedSceneItem"
           :runtime-robots="runtimeRobots"
-          @select="emit('update:selectedId', $event)"
+          :runtime-devices="runtimeDevices"
+          @select-scene="emit('update:selectedSceneItem', $event)"
         />
       </section>
     </section>
@@ -109,7 +111,8 @@
   import { onBeforeUnmount, ref, watch } from 'vue'
   import RobotLineScene from '@/views/production-dashboard/components/RobotLineScene.vue'
   import { ROBOT_STATUS_META } from '@/views/production-dashboard/config/robotLine'
-  import type { DashboardRobotRuntime } from '@/api/edge-dashboard'
+  import type { DashboardDeviceRuntime, DashboardRobotRuntime } from '@/api/edge-dashboard'
+  import type { LayoutSelection } from '@/store/modules/production-dashboard'
   import type {
     ProductionLineLayout,
     RobotDevice,
@@ -128,7 +131,9 @@
     robots: RobotDevice[]
     layout: ProductionLineLayout
     selectedId: string
+    selectedSceneItem: LayoutSelection | null
     runtimeRobots: DashboardRobotRuntime[]
+    runtimeDevices: DashboardDeviceRuntime[]
     statusItems: DashboardStatusOverviewItem[]
     statusPieStyle: Record<string, string>
     runningCount: number
@@ -137,6 +142,7 @@
 
   const emit = defineEmits<{
     'update:selectedId': [robotId: string]
+    'update:selectedSceneItem': [selection: LayoutSelection | null]
   }>()
 
   const robotStationListRef = ref<HTMLElement | null>(null)

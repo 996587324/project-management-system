@@ -38,7 +38,21 @@ export interface RobotDevice {
   bindings: RobotDataBindings
 }
 
-export type LayoutItemType = 'robot' | 'conveyor' | 'workCell' | 'junction'
+export type LayoutItemType = 'robot' | 'device' | 'conveyor' | 'workCell' | 'junction'
+
+export type DeviceLayoutType = 'generic' | 'machine' | 'inspection'
+
+export interface DeviceLayoutItem {
+  id: string
+  name: string
+  deviceType: DeviceLayoutType
+  position: [number, number]
+  rotation: number
+  width: number
+  height: number
+  depth: number
+  color: string
+}
 
 export interface ConveyorLayoutItem {
   id: string
@@ -53,6 +67,8 @@ export interface WorkCellLayoutItem {
   name: string
   position: [number, number]
   width: number
+  /** 工位框在 Three.js 场景中的垂直高度。 */
+  height: number
   depth: number
   rotation: number
 }
@@ -73,6 +89,7 @@ export interface ProductionLineLayout {
   enabled?: boolean
   updatedAt: string
   robots: RobotDevice[]
+  devices: DeviceLayoutItem[]
   conveyors: ConveyorLayoutItem[]
   workCells: WorkCellLayoutItem[]
   junctions: JunctionLayoutItem[]
@@ -183,6 +200,7 @@ export const LINE_W1_LAYOUT: ProductionLineLayout = {
     today: { ...robot.today },
     bindings: { ...robot.bindings }
   })),
+  devices: [],
   conveyors: [
     { id: 'in-01', name: '入口输送线', from: [-7.8, -0.1], to: [-5.15, 0.1], width: 0.8 },
     { id: 'merge-01', name: '合流输送线', from: [-5.15, 0.1], to: [-3.45, -0.1], width: 0.8 },
@@ -198,6 +216,7 @@ export const LINE_W1_LAYOUT: ProductionLineLayout = {
       name: '机械手 01 工位',
       position: [1.05, 1.84],
       width: 3.2,
+      height: 1.15,
       depth: 1.36,
       rotation: 0
     },
@@ -206,6 +225,7 @@ export const LINE_W1_LAYOUT: ProductionLineLayout = {
       name: '机械手 02 工位',
       position: [5.37, -0.1],
       width: 3.2,
+      height: 1.15,
       depth: 1.38,
       rotation: 0
     },
@@ -214,6 +234,7 @@ export const LINE_W1_LAYOUT: ProductionLineLayout = {
       name: '机械手 03 工位',
       position: [0.84, -2.7],
       width: 3.4,
+      height: 1.15,
       depth: 1.32,
       rotation: 0
     },
@@ -222,6 +243,7 @@ export const LINE_W1_LAYOUT: ProductionLineLayout = {
       name: '机械手 04 工位',
       position: [-3.73, -0.1],
       width: 2.6,
+      height: 1.15,
       depth: 1.34,
       rotation: 0
     }

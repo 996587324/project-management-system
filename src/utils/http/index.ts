@@ -20,6 +20,7 @@ import { ApiStatus } from './status'
 import { HttpError, handleError, showError, showSuccess } from './error'
 import { $t } from '@/locales'
 import { BaseResponse } from '@/types'
+import { getApiBaseUrl } from '@/utils/runtime-config'
 
 /** 请求配置常量 */
 const REQUEST_TIMEOUT = 15000
@@ -38,12 +39,12 @@ interface ExtendedAxiosRequestConfig extends AxiosRequestConfig {
   showSuccessMessage?: boolean
 }
 
-const { VITE_API_URL, VITE_WITH_CREDENTIALS } = import.meta.env
+const { VITE_WITH_CREDENTIALS } = import.meta.env
 
 /** Axios实例 */
 const axiosInstance = axios.create({
   timeout: REQUEST_TIMEOUT,
-  baseURL: VITE_API_URL,
+  baseURL: getApiBaseUrl(),
   withCredentials: VITE_WITH_CREDENTIALS === 'true',
   validateStatus: (status) => status >= 200 && status < 300,
   transformResponse: [
@@ -64,14 +65,6 @@ const axiosInstance = axios.create({
 /** 请求拦截器 */
 axiosInstance.interceptors.request.use(
   (request: InternalAxiosRequestConfig) => {
-  const baseURL = request.baseURL || axiosInstance.defaults.baseURL || '';
-    // 拼接规则：去掉 baseURL 末尾的 / 和 url 开头的 /，再用 / 连接
-    const requestUrl = request.url || ''
-    const fullUrl = baseURL
-      ? `${baseURL.replace(/\/$/, '')}/${requestUrl.replace(/^\//, '')}`
-      : requestUrl
-
-    // 现在打印的就是带 IP+端口的完整 URL 了
     const { accessToken } = useUserStore()
     if (accessToken) {
       const token = accessToken.startsWith('Bearer ') ? accessToken : `Bearer ${accessToken}`

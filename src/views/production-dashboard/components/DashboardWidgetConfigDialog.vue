@@ -11,6 +11,18 @@
         <el-button type="primary" :icon="Plus" class="w-full" @click="createWidget"
           >新增部件</el-button
         >
+        <div class="widget-config__chart-layout">
+          <b>图表每行数量</b>
+          <el-segmented v-model="chartPerRow" :options="chartPerRowOptions" block />
+          <el-button
+            plain
+            class="w-full"
+            :loading="applyingChartLayout"
+            @click="applyChartLayout"
+            >应用到全部图表</el-button
+          >
+          <small>仅调整饼图、柱状图；表格保持原宽度。</small>
+        </div>
         <button
           v-for="widget in widgets"
           :key="widget.id"
@@ -73,7 +85,7 @@
             <el-input-number v-model="form.topN" :min="1" :max="100" controls-position="right" />
             <span class="widget-config__suffix">项</span>
           </el-form-item>
-          <el-form-item label="部件宽度占比">
+          <el-form-item label="单个部件宽度占比">
             <el-select v-model="displayConfig.columnSpan" class="w-full">
               <el-option label="1/4 行" :value="3" />
               <el-option label="1/3 行" :value="4" />
@@ -264,11 +276,13 @@
   const loading = ref(false)
   const saving = ref(false)
   const deleting = ref(false)
+  const applyingChartLayout = ref(false)
   const widgets = ref<DashboardWidget[]>([])
   const catalog = ref<DashboardFieldCatalog[]>([])
   const pendingFieldKey = ref('')
   const palette = ['#20e5a3', '#38bdf8', '#ff4d67', '#f6b852', '#8b9cff', '#67d8d0']
   const displayConfig = ref<DashboardWidgetDisplayConfig>(parseDashboardWidgetDisplayConfig('{}'))
+  const chartPerRow = ref(3)
 
   const emptyWidget = (): DashboardWidget => ({
     id: 0,
@@ -298,6 +312,12 @@
     { label: '1 行', value: 1 },
     { label: '2 行', value: 2 },
     { label: '3 行', value: 3 }
+  ]
+  const chartPerRowOptions = [
+    { label: '1 个', value: 1 },
+    { label: '2 个', value: 2 },
+    { label: '3 个', value: 3 },
+    { label: '4 个', value: 4 }
   ]
   const periodOptions = [
     { label: '日', value: 'Day' },
@@ -371,6 +391,11 @@
         fetchDashboardBindings(props.lineCode)
       ])
       widgets.value = widgetRows
+      const firstChart = widgetRows.find((item) => item.widgetType !== 'Table')
+      if (firstChart) {
+        const columnSpan = parseDashboardWidgetDisplayConfig(firstChart.configJson).columnSpan || 4
+        chartPerRow.value = ([1, 2, 3, 4].includes(12 / columnSpan) ? 12 / columnSpan : 3) as number
+      }
       const configuredFields: DashboardFieldCatalog[] = bindings.flatMap((binding) =>
         binding.fields.map((field) => ({
           fieldKey: `field:${field.fieldCode}`,
@@ -408,6 +433,43 @@
     if (form.value.widgetType === 'Table') {
       form.value.fields.forEach((field) => (field.role = 'Column'))
       ensureColumnWidths()
+    } else if (!form.value.id) {
+      displayConfig.value.columnSpan = Math.floor(12 / chartPerRow.value)
+    }
+  }
+
+  const applyChartLayout = async () => {
+    const chartWidgets = widgets.value.filter((item) => item.widgetType !== 'Table')
+    if (!chartWidgets.length) return ElMessage.warning('当前没有可调整布局的饼图或柱状图')
+    const span = Math.floor(12 / chartPerRow.value)
+    await ElMessageBox.confirm(
+      `确定将全部 ${chartWidgets.length} 个图表设置为每行 ${chartPerRow.value} 个吗？`,
+      '应用图表布局',
+      { type: 'info', confirmButtonText: '应用', cancelButtonText: '取消' }
+    )
+    applyingChartLayout.value = true
+    try {
+      const savedWidgets: DashboardWidget[] = []
+      for (const widget of chartWidgets) {
+        const widgetDisplay = parseDashboardWidgetDisplayConfig(widget.configJson)
+        savedWidgets.push(
+          await saveDashboardWidget({
+            ...widget,
+            configJson: mergeDashboardWidgetDisplayConfig(widget.configJson, {
+              ...widgetDisplay,
+              columnSpan: span
+            })
+          })
+        )
+      }
+      const savedMap = new Map(savedWidgets.map((item) => [item.id, item]))
+      widgets.value = widgets.value.map((item) => savedMap.get(item.id) || item)
+      const active = widgets.value.find((item) => item.id === form.value.id)
+      if (active) selectWidget(active)
+      emit('changed')
+      ElMessage.success(`已将全部图表设置为每行 ${chartPerRow.value} 个`)
+    } finally {
+      applyingChartLayout.value = false
     }
   }
 
@@ -523,6 +585,25 @@
   .widget-config__list {
     padding-right: 12px;
     border-right: 1px solid var(--el-border-color-lighter);
+  }
+
+  .widget-config__chart-layout {
+    display: grid;
+    gap: 8px;
+    padding: 14px 0;
+    margin: 14px 0 6px;
+    border-top: 1px solid var(--el-border-color-lighter);
+    border-bottom: 1px solid var(--el-border-color-lighter);
+  }
+
+  .widget-config__chart-layout > b {
+    font-size: 13px;
+  }
+
+  .widget-config__chart-layout > small {
+    color: var(--el-text-color-secondary);
+    font-size: 12px;
+    line-height: 1.5;
   }
 
   .widget-config__list-item {

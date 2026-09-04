@@ -75,6 +75,12 @@
         <el-tab-pane label="消息队列" name="queue" lazy>
           <EdgeQueuePanel ref="queuePanel" @overview-changed="loadOverview" @show-json="showJson" />
         </el-tab-pane>
+        <el-tab-pane label="WebSocket 发送记录" name="websocket-sends" lazy>
+          <EdgeWebSocketSendRecordPanel ref="webSocketSendRecordPanel" @show-json="showJson" />
+        </el-tab-pane>
+        <el-tab-pane label="WebSocket 接收记录" name="websocket-receives" lazy>
+          <EdgeWebSocketReceiveRecordPanel ref="webSocketReceiveRecordPanel" @show-json="showJson" />
+        </el-tab-pane>
         <el-tab-pane label="日志中心" name="events" lazy>
           <EdgeEventPanel ref="eventPanel" @show-json="showJson" />
         </el-tab-pane>
@@ -159,6 +165,8 @@
   import EdgeRealtimePanel from './components/EdgeRealtimePanel.vue'
   import EdgeRulePanel from './components/EdgeRulePanel.vue'
   import EdgeWebSocketPanel from './components/EdgeWebSocketPanel.vue'
+  import EdgeWebSocketSendRecordPanel from './components/EdgeWebSocketSendRecordPanel.vue'
+  import EdgeWebSocketReceiveRecordPanel from './components/EdgeWebSocketReceiveRecordPanel.vue'
   import type { JsonDialogPayload, RefreshablePanel } from './components/shared'
   import { downloadResponseStream } from '@/utils/file/stream-download'
 
@@ -202,6 +210,8 @@
   const configPanel = ref<RefreshablePanel>()
   const rulePanel = ref<RefreshablePanel>()
   const queuePanel = ref<QueuePanelExpose>()
+  const webSocketSendRecordPanel = ref<RefreshablePanel>()
+  const webSocketReceiveRecordPanel = ref<RefreshablePanel>()
   const eventPanel = ref<RefreshablePanel>()
   const mappingPanel = ref<RefreshablePanel>()
 
@@ -250,6 +260,8 @@
       configs: configPanel.value,
       rules: rulePanel.value,
       queue: queuePanel.value,
+      'websocket-sends': webSocketSendRecordPanel.value,
+      'websocket-receives': webSocketReceiveRecordPanel.value,
       events: eventPanel.value,
       mappings: mappingPanel.value
     }

@@ -318,6 +318,7 @@ export const createProductionLineLayout = (line: ProductionLineBoard): Productio
       name: `${robot.name} 工位`,
       position: [...robot.position] as [number, number],
       width: 2.6,
+      height: 1.15,
       depth: 1.35,
       rotation: 0
     }))

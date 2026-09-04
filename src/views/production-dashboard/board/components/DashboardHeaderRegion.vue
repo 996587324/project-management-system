@@ -67,6 +67,13 @@
       >
         布局编辑
       </router-link>
+      <router-link
+        v-if="!readOnly"
+        class="production-dashboard__layout-link"
+        :to="{ name: 'AgentAssistant', query: { mode: 'work', domain: 'production-dashboard' } }"
+      >
+        看板 Agent
+      </router-link>
       <button
         v-if="!readOnly"
         class="production-dashboard__config-button"

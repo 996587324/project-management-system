@@ -31,23 +31,60 @@
       </p>
     </div>
 
+    <div v-else-if="showDetail && !editable && selectedDevice" class="robot-line-scene__detail">
+      <div class="robot-line-scene__detail-heading">
+        <span class="robot-line-scene__detail-name">{{ selectedDevice.name }}</span>
+        <span
+          class="robot-line-scene__detail-status"
+          :style="{ color: selectedDeviceRuntime?.dataOnline ? '#20e5a3' : '#94a3b8' }"
+        >
+          {{ selectedDeviceRuntime?.dataOnline ? '数据在线' : '未绑定或离线' }}
+        </span>
+      </div>
+      <p
+        >{{ getDeviceTypeLabel(selectedDevice.deviceType) }} · 尺寸：{{ selectedDevice.width }} ×
+        {{ selectedDevice.height }} × {{ selectedDevice.depth }}</p
+      >
+      <div v-if="selectedDeviceDisplayFields.length" class="robot-line-scene__detail-fields">
+        <div v-for="field in selectedDeviceDisplayFields" :key="field.fieldCode">
+          <span>{{ field.displayName }}</span>
+          <b :title="formatDisplayField(field)">{{ formatDisplayField(field) }}</b>
+        </div>
+      </div>
+      <p v-else class="robot-line-scene__detail-empty">暂无设备展示字段</p>
+    </div>
+
     <span class="robot-line-scene__tip">
       {{
         editable
           ? '点击组件后拖动坐标轴移动 · 输送线端点可在右侧调整'
-          : '拖拽旋转 · 滚轮缩放 · 点击机械手查看详情'
+          : '拖拽旋转 · 滚轮缩放 · 点击设备或机械手查看详情'
       }}
     </span>
   </section>
 </template>
 
 <script lang="ts">
-  import { computed, defineComponent, onBeforeUnmount, onMounted, PropType, ref, watch } from 'vue'
+  import {
+    computed,
+    defineComponent,
+    nextTick,
+    onBeforeUnmount,
+    onMounted,
+    PropType,
+    ref,
+    watch
+  } from 'vue'
   import * as THREE from 'three'
   import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
   import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js'
+  import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+  import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js'
+  import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
   import {
     ConveyorLayoutItem,
+    DeviceLayoutItem,
+    DeviceLayoutType,
     JunctionLayoutItem,
     LayoutItemType,
     ProductionLineLayout,
@@ -57,7 +94,11 @@
     WorkCellLayoutItem
   } from '@/views/production-dashboard/config/robotLine'
   import { LayoutMove, LayoutSelection } from '@/store/modules/production-dashboard'
-  import type { DashboardRobotRuntime, DashboardRuntimeField } from '@/api/edge-dashboard'
+  import type {
+    DashboardDeviceRuntime,
+    DashboardRobotRuntime,
+    DashboardRuntimeField
+  } from '@/api/edge-dashboard'
 
   interface RobotNode {
     group: THREE.Group
@@ -65,6 +106,7 @@
     marker: THREE.Mesh<THREE.TorusGeometry, THREE.MeshStandardMaterial>
     label: THREE.Sprite
     status: RobotStatus
+    name: string
   }
 
   interface SceneItemMetadata extends LayoutSelection {
@@ -88,8 +130,16 @@
         type: String,
         default: ''
       },
+      selectedLayout: {
+        type: Object as PropType<LayoutSelection | null>,
+        default: null
+      },
       runtimeRobots: {
         type: Array as PropType<DashboardRobotRuntime[]>,
+        default: () => []
+      },
+      runtimeDevices: {
+        type: Array as PropType<DashboardDeviceRuntime[]>,
         default: () => []
       },
       editable: {
@@ -101,7 +151,7 @@
         default: true
       }
     },
-    emits: ['select', 'select-layout', 'move-layout-item'],
+    emits: ['select', 'select-scene', 'select-layout', 'move-layout-item'],
     setup(props, { emit }) {
       const canvasRef = ref<HTMLDivElement | null>(null)
       const scene = new THREE.Scene()
@@ -112,6 +162,8 @@
       const pointer = new THREE.Vector2()
       const timer = new THREE.Timer()
       let renderer: THREE.WebGLRenderer | null = null
+      let composer: EffectComposer | null = null
+      let outlinePass: OutlinePass | null = null
       let camera: THREE.PerspectiveCamera | null = null
       let controls: OrbitControls | null = null
       let focusTarget: THREE.Vector3 | null = null
@@ -121,17 +173,37 @@
       let pointerDown: { x: number; y: number } | null = null
       let transformStart: [number, number] | null = null
 
-      const selectedRobot = computed<RobotDevice | undefined>(
-        () => props.robots.find((robot) => robot.id === props.selectedId) || props.robots[0]
+      const selectedSceneItem = computed<LayoutSelection | null>(
+        () =>
+          props.selectedLayout ||
+          (props.selectedId ? { type: 'robot', id: props.selectedId } : null)
       )
+      const selectedRobot = computed<RobotDevice | undefined>(() => {
+        if (selectedSceneItem.value?.type !== 'robot') return undefined
+        return props.robots.find((robot) => robot.id === selectedSceneItem.value?.id)
+      })
+      const selectedDevice = computed<DeviceLayoutItem | undefined>(() => {
+        if (selectedSceneItem.value?.type !== 'device') return undefined
+        return props.layout.devices.find((device) => device.id === selectedSceneItem.value?.id)
+      })
       const selectedRuntime = computed(() =>
         props.runtimeRobots.find((robot) => robot.robotCode === selectedRobot.value?.id)
+      )
+      const selectedDeviceRuntime = computed(() =>
+        props.runtimeDevices.find((device) => device.deviceCode === selectedDevice.value?.id)
       )
       const selectedDisplayFields = computed(() =>
         [...(selectedRuntime.value?.fields || [])].sort((left, right) => left.sort - right.sort)
       )
+      const selectedDeviceDisplayFields = computed(() =>
+        [...(selectedDeviceRuntime.value?.fields || [])].sort(
+          (left, right) => left.sort - right.sort
+        )
+      )
 
       const getStatusMeta = (status: RobotStatus) => ROBOT_STATUS_META[status]
+      const getDeviceTypeLabel = (type: DeviceLayoutType) =>
+        ({ generic: '通用设备', machine: '加工设备', inspection: '检测设备' })[type]
       const formatDisplayField = (field: DashboardRuntimeField) => {
         const value = field.displayValue
         if (value == null || value === '') return '-'
@@ -140,16 +212,88 @@
         return field.unit === '%' ? `${text}%` : `${text} ${field.unit}`
       }
 
-      /** 平滑移动观察中心，让自动巡检和手动选中的机械手保持在画面中央。 */
-      const focusSelectedRobot = () => {
+      const findSceneItemObject = (selection: LayoutSelection | null) => {
+        if (!selection) return undefined
+        return clickTargets.find((object) => {
+          const item = object.userData.layoutItem as SceneItemMetadata | undefined
+          return item?.type === selection.type && item.id === selection.id
+        })
+      }
+
+      /** 平滑移动观察中心，让手动选中的设备或机械手保持在画面中央。 */
+      const focusSelectedSceneItem = () => {
         if (props.editable || !controls) return
-        const node = robotNodes.get(props.selectedId)
-        if (!node) return
-        focusTarget = new THREE.Vector3(node.group.position.x, 0.65, node.group.position.z)
+        const target = findSceneItemObject(selectedSceneItem.value)
+        if (!target) return
+        focusTarget = new THREE.Vector3(target.position.x, 0.65, target.position.z)
+      }
+
+      const syncSelectionHighlight = () => {
+        const target = findSceneItemObject(selectedSceneItem.value)
+        if (outlinePass) outlinePass.selectedObjects = target ? [target] : []
+        focusSelectedSceneItem()
       }
 
       const cancelFocus = () => {
         focusTarget = null
+      }
+
+      /**
+       * 根据当前线体所有组件的占地范围生成全景视角。
+       * 相机采用接近俯视的角度，并为工位框、设备尺寸与画面边缘预留空间。
+       */
+      const fitOverviewCamera = () => {
+        if (!camera || !controls) return
+
+        const bounds = new THREE.Box2()
+        const include = (point: [number, number], paddingX = 0.8, paddingZ = paddingX) => {
+          bounds.expandByPoint(new THREE.Vector2(point[0] - paddingX, point[1] - paddingZ))
+          bounds.expandByPoint(new THREE.Vector2(point[0] + paddingX, point[1] + paddingZ))
+        }
+
+        props.robots.forEach((robot) => include(robot.position, 1.2))
+        ;(props.layout.devices || []).forEach((device) =>
+          include(device.position, Math.max(device.width / 2, 0.8), Math.max(device.depth / 2, 0.8))
+        )
+        props.layout.workCells.forEach((cell) =>
+          include(cell.position, Math.max(cell.width / 2, 0.8), Math.max(cell.depth / 2, 0.8))
+        )
+        props.layout.conveyors.forEach((conveyor) => {
+          const padding = Math.max(conveyor.width / 2, 0.5)
+          include(conveyor.from, padding)
+          include(conveyor.to, padding)
+        })
+        props.layout.junctions.forEach((junction) => include(junction.position, 0.8))
+
+        if (bounds.isEmpty()) {
+          include([-4, -3])
+          include([4, 3])
+        }
+
+        const size = bounds.getSize(new THREE.Vector2())
+        const center = bounds.getCenter(new THREE.Vector2())
+        const paddedWidth = Math.max(size.x + 5, 10)
+        const paddedDepth = Math.max(size.y + 5, 10)
+        const aspect = Math.max(camera.aspect, 0.75)
+        const visibleSpan = Math.max(paddedDepth, paddedWidth / aspect)
+        const verticalFov = THREE.MathUtils.degToRad(camera.fov)
+        const distance = Math.max(18, (visibleSpan / 2 / Math.tan(verticalFov / 2)) * 1.12)
+        const overviewDirection = new THREE.Vector3(0.45, 1.35, 0.65).normalize()
+        const target = new THREE.Vector3(center.x, 0.35, center.y)
+
+        camera.position.copy(target).addScaledVector(overviewDirection, distance)
+        camera.near = 0.1
+        camera.far = 500
+        camera.updateProjectionMatrix()
+        controls.target.copy(target)
+        // 保留全景浏览空间，同时允许靠近设备与工位框查看细节。
+        controls.minDistance = Math.max(2.5, distance * 0.12)
+        controls.maxDistance = Math.max(180, distance * 5)
+        controls.minPolarAngle = 0.08
+        controls.maxPolarAngle = Math.PI / 2.12
+        focusTarget = null
+        camera.lookAt(target)
+        controls.update()
       }
 
       const createLabel = (text: string, color: string) => {
@@ -167,7 +311,12 @@
         context.fill()
         context.stroke()
         context.fillStyle = '#e2f6ff'
-        context.font = 'bold 62px Arial, Microsoft YaHei, sans-serif'
+        let fontSize = 62
+        context.font = `bold ${fontSize}px Arial, Microsoft YaHei, sans-serif`
+        while (context.measureText(text).width > canvas.width - 72 && fontSize > 32) {
+          fontSize -= 2
+          context.font = `bold ${fontSize}px Arial, Microsoft YaHei, sans-serif`
+        }
         context.textAlign = 'center'
         context.textBaseline = 'middle'
         context.fillText(text, canvas.width / 2, canvas.height / 2 + 4)
@@ -297,7 +446,14 @@
         group.add(label)
         scene.add(group)
         registerSelectable(group, 'robot', robot.id, robot.position)
-        robotNodes.set(robot.id, { group, arm, marker, label, status: robot.status })
+        robotNodes.set(robot.id, {
+          group,
+          arm,
+          marker,
+          label,
+          status: robot.status,
+          name: robot.name
+        })
       }
 
       const removeRobot = (id: string) => {
@@ -329,7 +485,7 @@
           node.marker.material.emissive.set(meta.color)
           const metadata = node.group.userData.layoutItem as SceneItemMetadata
           metadata.center = [...robot.position]
-          if (node.status !== robot.status) {
+          if (node.status !== robot.status || node.name !== robot.name) {
             const labelMaterial = node.label.material as THREE.SpriteMaterial
             labelMaterial.map?.dispose()
             labelMaterial.dispose()
@@ -339,8 +495,10 @@
             node.label.position.set(0, 2.08, 0)
             node.group.add(node.label)
             node.status = robot.status
+            node.name = robot.name
           }
         })
+        syncSelectionHighlight()
       }
 
       const createConveyor = (conveyor: ConveyorLayoutItem) => {
@@ -397,14 +555,106 @@
         registerSelectable(group, 'junction', junction.id, junction.position)
       }
 
+      const createDevice = (device: DeviceLayoutItem) => {
+        const width = Math.max(device.width, 0.3)
+        const height = Math.max(device.height, 0.3)
+        const depth = Math.max(device.depth, 0.3)
+        const group = new THREE.Group()
+        group.name = device.name
+        group.position.set(device.position[0], 0, device.position[1])
+        group.rotation.y = device.rotation
+
+        const bodyMaterial = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(device.color || '#4db7d8'),
+          metalness: 0.58,
+          roughness: 0.32
+        })
+        const darkMaterial = new THREE.MeshStandardMaterial({
+          color: 0x102437,
+          metalness: 0.72,
+          roughness: 0.25
+        })
+        const accentMaterial = new THREE.MeshStandardMaterial({
+          color: 0x63e8ff,
+          emissive: 0x17677a,
+          emissiveIntensity: 0.85,
+          metalness: 0.25,
+          roughness: 0.28
+        })
+
+        const base = new THREE.Mesh(
+          new THREE.BoxGeometry(width * 1.06, 0.12, depth * 1.06),
+          darkMaterial
+        )
+        base.position.y = 0.06
+        group.add(base)
+
+        const body = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), bodyMaterial)
+        body.position.y = height / 2 + 0.12
+        group.add(body)
+
+        if (device.deviceType === 'machine') {
+          const door = new THREE.Mesh(
+            new THREE.BoxGeometry(width * 0.64, height * 0.62, 0.045),
+            darkMaterial
+          )
+          door.position.set(0, height * 0.48 + 0.12, depth / 2 + 0.025)
+          group.add(door)
+          const window = new THREE.Mesh(
+            new THREE.BoxGeometry(width * 0.42, height * 0.24, 0.052),
+            accentMaterial
+          )
+          window.position.set(0, height * 0.64 + 0.12, depth / 2 + 0.055)
+          group.add(window)
+        } else if (device.deviceType === 'inspection') {
+          const screen = new THREE.Mesh(
+            new THREE.BoxGeometry(width * 0.58, height * 0.34, 0.055),
+            accentMaterial
+          )
+          screen.position.set(0, height * 0.62 + 0.12, depth / 2 + 0.03)
+          group.add(screen)
+          const sensor = new THREE.Mesh(
+            new THREE.CylinderGeometry(width * 0.09, width * 0.09, depth * 0.36, 18),
+            darkMaterial
+          )
+          sensor.rotation.x = Math.PI / 2
+          sensor.position.set(0, height + 0.2, 0)
+          group.add(sensor)
+        } else {
+          const panel = new THREE.Mesh(
+            new THREE.BoxGeometry(width * 0.5, height * 0.24, 0.05),
+            darkMaterial
+          )
+          panel.position.set(0, height * 0.62 + 0.12, depth / 2 + 0.03)
+          group.add(panel)
+          const indicator = new THREE.Mesh(
+            new THREE.SphereGeometry(Math.min(width, height) * 0.06, 16, 12),
+            accentMaterial
+          )
+          indicator.position.set(width * 0.32, height * 0.78 + 0.12, depth / 2 + 0.07)
+          group.add(indicator)
+        }
+
+        const label = createLabel(device.name, '#63e8ff')
+        label.position.y = height + 0.62
+        group.add(label)
+        layoutLayer.add(group)
+        registerSelectable(group, 'device', device.id, device.position)
+      }
+
       const createWorkCell = (cell: WorkCellLayoutItem) => {
+        const height = Math.max(cell.height, 0.3)
         const group = new THREE.Group()
         const frame = new THREE.LineSegments(
-          new THREE.EdgesGeometry(new THREE.BoxGeometry(cell.width, 1.15, cell.depth)),
+          new THREE.EdgesGeometry(new THREE.BoxGeometry(cell.width, height, cell.depth)),
           new THREE.LineBasicMaterial({ color: 0xffca4d, transparent: true, opacity: 0.9 })
         )
-        frame.position.y = 0.63
+        frame.position.y = height / 2 + 0.06
         group.add(frame)
+        const label = createLabel(cell.name, '#ffca4d')
+        label.scale.set(1.8, 0.36, 1)
+        label.position.y = height + 0.33
+        group.add(label)
         group.position.set(cell.position[0], 0, cell.position[1])
         group.rotation.y = cell.rotation
         layoutLayer.add(group)
@@ -413,6 +663,7 @@
 
       const clearLayout = () => {
         transformControls?.detach()
+        if (outlinePass) outlinePass.selectedObjects = []
         while (layoutLayer.children.length) {
           const child = layoutLayer.children[0]
           layoutLayer.remove(child)
@@ -427,25 +678,27 @@
       const renderLayout = () => {
         clearLayout()
         props.layout.conveyors.forEach(createConveyor)
+        ;(props.layout.devices || []).forEach(createDevice)
         props.layout.workCells.forEach(createWorkCell)
         props.layout.junctions.forEach(createJunction)
+        syncSelectionHighlight()
       }
 
       const createFactory = () => {
-        scene.background = new THREE.Color(0x07111f)
-        scene.fog = new THREE.Fog(0x07111f, 13, 31)
+        scene.background = new THREE.Color(0x1b4358)
+        scene.fog = new THREE.Fog(0x1b4358, 90, 280)
         const ground = new THREE.Mesh(
-          new THREE.PlaneGeometry(50, 50),
-          new THREE.MeshStandardMaterial({ color: 0x0a2033, metalness: 0.15, roughness: 0.85 })
+          new THREE.PlaneGeometry(600, 600),
+          new THREE.MeshStandardMaterial({ color: 0x285a70, metalness: 0.12, roughness: 0.88 })
         )
         ground.rotation.x = -Math.PI / 2
         scene.add(ground)
-        const grid = new THREE.GridHelper(50, 50, 0x214e6a, 0x123044)
+        const grid = new THREE.GridHelper(600, 300, 0x62a8c1, 0x39778f)
         grid.position.y = 0.012
         scene.add(grid, layoutLayer)
 
-        const ambient = new THREE.HemisphereLight(0x6db7ff, 0x07111f, 1.5)
-        const keyLight = new THREE.DirectionalLight(0xc4ecff, 2.4)
+        const ambient = new THREE.HemisphereLight(0xb5e7ff, 0x17394c, 1.9)
+        const keyLight = new THREE.DirectionalLight(0xd9f3ff, 2.7)
         keyLight.position.set(4, 8, 6)
         const alarmLight = new THREE.PointLight(0xff765d, 16, 9, 2)
         alarmLight.position.set(3.37, 3, -0.94)
@@ -461,7 +714,10 @@
         camera.aspect = clientWidth / clientHeight
         camera.updateProjectionMatrix()
         renderer.setSize(clientWidth, clientHeight, false)
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+        const pixelRatio = Math.min(window.devicePixelRatio, 2)
+        renderer.setPixelRatio(pixelRatio)
+        composer?.setPixelRatio(pixelRatio)
+        composer?.setSize(clientWidth, clientHeight)
         robotNodes.forEach((node) => applyRobotLabelScale(node.label))
       }
 
@@ -481,15 +737,20 @@
         )
         raycaster.setFromCamera(pointer, camera)
         const hit = raycaster.intersectObjects(clickTargets, true)[0]
-        if (!hit) return
+        if (!hit) {
+          if (!props.editable) emit('select-scene', null)
+          return
+        }
         const target = getSceneItem(hit.object)
         const item = target?.userData.layoutItem as SceneItemMetadata | undefined
         if (!target || !item) return
         if (props.editable) {
           transformControls?.attach(target)
           emit('select-layout', { type: item.type, id: item.id } as LayoutSelection)
-        } else if (item.type === 'robot') {
-          emit('select', item.id)
+        } else if (item.type === 'robot' || item.type === 'device') {
+          const selection = { type: item.type, id: item.id } as LayoutSelection
+          emit('select-scene', selection)
+          if (item.type === 'robot') emit('select', item.id)
         }
       }
 
@@ -527,7 +788,8 @@
           const node = robotNodes.get(robot.id)
           if (!node) return
           const isAlert = robot.status === 'ALARM' || robot.status === 'WARNING'
-          const isSelected = robot.id === props.selectedId
+          const isSelected =
+            selectedSceneItem.value?.type === 'robot' && robot.id === selectedSceneItem.value.id
           const pulse = isAlert ? 1 + Math.sin(elapsed * 5) * 0.12 : 1
           node.marker.scale.setScalar(pulse * (isSelected ? 1.18 : 1))
           node.marker.material.emissiveIntensity = isSelected
@@ -544,7 +806,8 @@
           if (controls.target.distanceTo(focusTarget) < 0.015) focusTarget = null
         }
         controls?.update()
-        renderer?.render(scene, camera as THREE.Camera)
+        if (composer) composer.render()
+        else renderer?.render(scene, camera as THREE.Camera)
       }
 
       const onPointerDown = (event: PointerEvent) => {
@@ -562,6 +825,8 @@
         controls?.dispose()
         transformControls?.dispose()
         timer.dispose()
+        outlinePass?.dispose()
+        composer?.dispose()
         disposeObject(scene)
         renderer?.dispose()
         renderer?.domElement.remove()
@@ -575,14 +840,25 @@
         renderer = new THREE.WebGLRenderer({ antialias: true })
         renderer.outputColorSpace = THREE.SRGBColorSpace
         canvasRef.value.appendChild(renderer.domElement)
-        camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100)
-        camera.position.set(8.8, 10.5, 12.5)
+        camera = new THREE.PerspectiveCamera(42, 1, 0.1, 500)
+        camera.position.set(10, 20, 14)
+        composer = new EffectComposer(renderer)
+        composer.addPass(new RenderPass(scene, camera))
+        outlinePass = new OutlinePass(new THREE.Vector2(1, 1), scene, camera)
+        outlinePass.edgeStrength = 5
+        outlinePass.edgeGlow = 1.15
+        outlinePass.edgeThickness = 1.6
+        outlinePass.pulsePeriod = 1.8
+        outlinePass.visibleEdgeColor.set('#63e8ff')
+        outlinePass.hiddenEdgeColor.set('#1b6680')
+        composer.addPass(outlinePass)
         controls = new OrbitControls(camera, renderer.domElement)
         controls.target.set(0, 0.35, -0.55)
         controls.enableDamping = true
-        controls.minDistance = 7
-        controls.maxDistance = 25
-        controls.maxPolarAngle = Math.PI / 2.05
+        controls.minDistance = 2.5
+        controls.maxDistance = 120
+        controls.minPolarAngle = 0.08
+        controls.maxPolarAngle = Math.PI / 2.12
         controls.addEventListener('start', cancelFocus)
         transformControls = new TransformControls(camera, renderer.domElement)
         transformControls.setMode('translate')
@@ -596,6 +872,7 @@
         scene.add(transformControls.getHelper())
         createFactory()
         resize()
+        fitOverviewCamera()
         resizeObserver = new ResizeObserver(resize)
         resizeObserver.observe(canvasRef.value)
         canvasRef.value.addEventListener('pointerdown', onPointerDown)
@@ -614,24 +891,33 @@
         { deep: true }
       )
       watch(
+        () => props.layout.lineId,
+        async () => {
+          await nextTick()
+          fitOverviewCamera()
+        }
+      )
+      watch(
         () => props.editable,
         (editable) => {
           if (!editable) transformControls?.detach()
           robotNodes.forEach((node) => applyRobotLabelScale(node.label))
+          syncSelectionHighlight()
         }
       )
-      watch(
-        () => props.selectedId,
-        () => focusSelectedRobot()
-      )
+      watch(selectedSceneItem, () => syncSelectionHighlight(), { deep: true })
 
       onBeforeUnmount(dispose)
 
       return {
         canvasRef,
         selectedRobot,
+        selectedDevice,
+        selectedDeviceRuntime,
         selectedDisplayFields,
+        selectedDeviceDisplayFields,
         formatDisplayField,
+        getDeviceTypeLabel,
         getStatusMeta,
         statusLegend: statusLegend.map((status) => ({ status, ...getStatusMeta(status) }))
       }
@@ -644,7 +930,7 @@
     position: relative;
     height: 350px;
     overflow: hidden;
-    background: #07111f;
+    background: #1b4358;
     border: 1px solid rgb(75 183 246 / 35%);
     border-radius: 8px;
 
@@ -684,8 +970,8 @@
       gap: 10px;
       padding: 6px 8px;
       font-size: 11px;
-      background: rgb(4 15 30 / 74%);
-      border: 1px solid rgb(124 210 255 / 20%);
+      background: rgb(26 67 88 / 84%);
+      border: 1px solid rgb(144 218 248 / 28%);
       border-radius: 4px;
     }
 
@@ -713,7 +999,7 @@
       font-size: 12px;
       text-align: left;
       pointer-events: auto;
-      background: rgb(4 15 30 / 78%);
+      background: rgb(24 63 83 / 88%);
       border-left: 2px solid #47c9ff;
       scrollbar-color: rgb(71 201 255 / 42%) transparent;
       scrollbar-width: thin;

@@ -4,6 +4,7 @@ import { fetchDashboardSceneLayout, saveDashboardSceneLayout } from '@/api/edge-
 import {
   cloneDefaultLineLayout,
   type ConveyorLayoutItem,
+  type DeviceLayoutItem,
   type JunctionLayoutItem,
   type LayoutItemType,
   type ProductionLineLayout,
@@ -41,11 +42,22 @@ const isProductionLineLayout = (value: unknown): value is ProductionLineLayout =
     typeof candidate.lineId === 'string' &&
     typeof candidate.lineName === 'string' &&
     Array.isArray(candidate.robots) &&
+    (candidate.devices === undefined || Array.isArray(candidate.devices)) &&
     Array.isArray(candidate.conveyors) &&
     Array.isArray(candidate.workCells) &&
     Array.isArray(candidate.junctions)
   )
 }
+
+const normalizeLayout = (source: ProductionLineLayout): ProductionLineLayout => ({
+  ...source,
+  devices: Array.isArray(source.devices) ? source.devices : [],
+  // 已保存的旧布局没有高度字段，继续使用原有固定高度，保存后会自动写入新字段。
+  workCells: source.workCells.map((cell) => ({
+    ...cell,
+    height: Number.isFinite(cell.height) ? Math.max(cell.height, 0.3) : 1.15
+  }))
+})
 
 const readLegacyLayout = () => {
   try {
@@ -53,7 +65,7 @@ const readLegacyLayout = () => {
     if (!saved) return null
     const parsed = JSON.parse(saved)
     const candidate = parsed?.layout ?? parsed
-    return isProductionLineLayout(candidate) ? candidate : null
+    return isProductionLineLayout(candidate) ? normalizeLayout(candidate) : null
   } catch {
     return null
   }
@@ -75,6 +87,8 @@ export const useProductionDashboardStore = defineStore('productionDashboard', ()
     switch (selection.type) {
       case 'robot':
         return layout.value.robots.find((item) => item.id === selection.id)
+      case 'device':
+        return layout.value.devices.find((item) => item.id === selection.id)
       case 'conveyor':
         return layout.value.conveyors.find((item) => item.id === selection.id)
       case 'workCell':
@@ -117,7 +131,7 @@ export const useProductionDashboardStore = defineStore('productionDashboard', ()
   const hydrateLayout = (source: ProductionLineLayout) => {
     if (!isProductionLineLayout(source)) throw new Error('场景布局结构无效')
     loadSequence += 1
-    const hydrated = JSON.parse(JSON.stringify(source)) as ProductionLineLayout
+    const hydrated = normalizeLayout(JSON.parse(JSON.stringify(source)) as ProductionLineLayout)
     layout.value = hydrated
     initialLayout.value = JSON.parse(JSON.stringify(hydrated)) as ProductionLineLayout
     loadedLineCode.value = hydrated.lineId
@@ -151,7 +165,7 @@ export const useProductionDashboardStore = defineStore('productionDashboard', ()
         const parsed = JSON.parse(saved.layoutJson)
         if (!isProductionLineLayout(parsed) || parsed.lineId !== lineCode)
           throw new Error('数据库中的场景布局结构无效')
-        layout.value = parsed
+        layout.value = normalizeLayout(parsed)
         window.localStorage.removeItem(LEGACY_LAYOUT_STORAGE_KEY)
       } else if (lineCode === 'W1') {
         const legacyLayout = readLegacyLayout()
@@ -191,6 +205,24 @@ export const useProductionDashboardStore = defineStore('productionDashboard', ()
     return { type: 'robot', id }
   }
 
+  const addDevice = (): LayoutSelection => {
+    const id = nextId('device', layout.value.devices)
+    const device: DeviceLayoutItem = {
+      id,
+      name: `设备 ${id.slice(-2)}`,
+      deviceType: 'generic',
+      position: [0, 0],
+      rotation: 0,
+      width: 1.4,
+      height: 1.5,
+      depth: 1.1,
+      color: '#4db7d8'
+    }
+    layout.value.devices.push(device)
+    touch()
+    return { type: 'device', id }
+  }
+
   const addConveyor = (): LayoutSelection => {
     const id = nextId('conveyor', layout.value.conveyors)
     const conveyor: ConveyorLayoutItem = {
@@ -212,6 +244,7 @@ export const useProductionDashboardStore = defineStore('productionDashboard', ()
       name: '新建工位',
       position: [0, -2.9],
       width: 2.6,
+      height: 1.15,
       depth: 1.4,
       rotation: 0
     }
@@ -235,6 +268,7 @@ export const useProductionDashboardStore = defineStore('productionDashboard', ()
   const removeItem = (selection: LayoutSelection) => {
     const collections: Record<LayoutItemType, Array<{ id: string }>> = {
       robot: layout.value.robots,
+      device: layout.value.devices,
       conveyor: layout.value.conveyors,
       workCell: layout.value.workCells,
       junction: layout.value.junctions
@@ -256,7 +290,11 @@ export const useProductionDashboardStore = defineStore('productionDashboard', ()
       conveyor.from = [conveyor.from[0] + deltaX, conveyor.from[1] + deltaZ]
       conveyor.to = [conveyor.to[0] + deltaX, conveyor.to[1] + deltaZ]
     } else {
-      const movableItem = item as RobotDevice | WorkCellLayoutItem | JunctionLayoutItem
+      const movableItem = item as
+        | RobotDevice
+        | DeviceLayoutItem
+        | WorkCellLayoutItem
+        | JunctionLayoutItem
       movableItem.position = move.position
     }
     touch()
@@ -274,6 +312,7 @@ export const useProductionDashboardStore = defineStore('productionDashboard', ()
     saveLayout,
     resetLayout,
     addRobot,
+    addDevice,
     addConveyor,
     addWorkCell,
     addJunction,
@@ -301,6 +340,7 @@ export const useLineLayout = () => {
     saveLayout: store.saveLayout,
     resetLayout: store.resetLayout,
     addRobot: store.addRobot,
+    addDevice: store.addDevice,
     addConveyor: store.addConveyor,
     addWorkCell: store.addWorkCell,
     addJunction: store.addJunction,

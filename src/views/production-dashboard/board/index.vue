@@ -45,12 +45,15 @@
         :robots="sceneRobots"
         :layout="activeSceneLayout"
         :selected-id="selectedRobotId"
+        :selected-scene-item="selectedSceneItem"
         :runtime-robots="runtime?.robots || []"
+        :runtime-devices="runtime?.devices || []"
         :status-items="statusOverview"
         :status-pie-style="statusPieStyle"
         :running-count="runningRobotCount"
         :alarms="activeAlarms"
         @update:selected-id="selectedRobotId = $event"
+        @update:selected-scene-item="selectedSceneItem = $event"
       />
 
       <dashboard-analytics-region
@@ -58,6 +61,14 @@
         :widgets="dashboardWidgets"
         :line-code="activeLineId"
         :default-column-span="defaultWidgetColumnSpan"
+        :public-access="isReadOnly"
+        @view-details="openWidgetDetail"
+      />
+
+      <dashboard-widget-detail-dialog
+        v-model="widgetDetailOpen"
+        :widget="detailWidget"
+        :line-code="activeLineId"
         :public-access="isReadOnly"
       />
 
@@ -109,6 +120,7 @@
   import DashboardRobotBindingDialog from '@/views/production-dashboard/components/DashboardRobotBindingDialog.vue'
   import DashboardExportDialog from '@/views/production-dashboard/components/DashboardExportDialog.vue'
   import DashboardWidgetConfigDialog from '@/views/production-dashboard/components/DashboardWidgetConfigDialog.vue'
+  import DashboardWidgetDetailDialog from '@/views/production-dashboard/components/DashboardWidgetDetailDialog.vue'
   import ProductionLineConfigDialog from '@/views/production-dashboard/components/ProductionLineConfigDialog.vue'
   import {
     ProductionLineLayout,
@@ -127,6 +139,7 @@
     rememberProductionDashboardLine
   } from '@/views/production-dashboard/config/productionDashboard'
   import { useLineLayout } from '@/store/modules/production-dashboard'
+  import type { LayoutSelection } from '@/store/modules/production-dashboard'
   import { useUserStore } from '@/store/modules/user'
   import { downloadResponseStream } from '@/utils/file/stream-download'
   import {
@@ -172,6 +185,7 @@
       DashboardRobotBindingDialog,
       DashboardExportDialog,
       DashboardWidgetConfigDialog,
+      DashboardWidgetDetailDialog,
       ProductionLineConfigDialog
     },
     setup() {
@@ -189,7 +203,16 @@
         configuredLines.value.find((line) => line.enabled) ||
         configuredLines.value[0]
       const activeLineId = ref(initialLine.id)
-      const selectedRobotId = ref(initialLine.robots[0]?.id || '')
+      const selectedSceneItem = ref<LayoutSelection | null>(
+        initialLine.robots[0] ? { type: 'robot', id: initialLine.robots[0].id } : null
+      )
+      const selectedRobotId = computed<string>({
+        get: () =>
+          selectedSceneItem.value?.type === 'robot' ? selectedSceneItem.value.id : '',
+        set: (id) => {
+          selectedSceneItem.value = id ? { type: 'robot', id } : null
+        }
+      })
       const lineConfigOpen = ref(false)
       const bindingDialogOpen = ref(false)
       const widgetConfigOpen = ref(false)
@@ -200,10 +223,17 @@
       const todayStatistics = ref<DashboardDailyStatistic[]>([])
       const currentFaults = ref<DashboardFaultRecord[]>([])
       const dashboardWidgets = ref<DashboardWidget[]>([])
+      const detailWidget = ref<DashboardWidget>()
+      const widgetDetailOpen = ref(false)
       const defaultWidgetColumnSpan = computed(() => {
         const visibleCount = Math.min(Math.max(dashboardWidgets.value.length, 1), 3)
         return Math.floor(12 / visibleCount)
       })
+
+      const openWidgetDetail = (widget: DashboardWidget) => {
+        detailWidget.value = widget
+        widgetDetailOpen.value = true
+      }
       const lineCreating = ref(false)
       const lineSavingId = ref('')
       const dashboardBootstrapping = ref(true)
@@ -400,6 +430,7 @@
           parsed.lineArea = fallback.lineArea
           parsed.lineColor = fallback.lineColor
           parsed.enabled = fallback.enabled
+          parsed.devices = Array.isArray(parsed.devices) ? parsed.devices : []
           parsed.robots = markRobotsOffline(parsed.robots)
           return parsed
         } catch {
@@ -898,12 +929,15 @@
         sceneRobots,
         activeSceneLayout,
         selectedRobotId,
+        selectedSceneItem,
         runtime,
         lineConfigOpen,
         bindingDialogOpen,
         widgetConfigOpen,
         exportDialogOpen,
         exportLoading,
+        detailWidget,
+        widgetDetailOpen,
         currentTime,
         selectedRobotForBinding,
         dashboardWidgets,
@@ -923,6 +957,7 @@
         removeLine,
         refreshDashboardData,
         loadDashboardWidgets,
+        openWidgetDetail,
         exportCurrentLine
       }
     }

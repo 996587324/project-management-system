@@ -36,6 +36,7 @@
       <aside class="layout-editor__panel layout-editor__palette">
         <div class="layout-editor__panel-title">组件库</div>
         <button type="button" @click="add('robot')">＋ 机械手</button>
+        <button type="button" @click="add('device')">＋ 设备</button>
         <button type="button" @click="add('workCell')">＋ 工位框</button>
         <button type="button" @click="add('conveyor')">＋ 输送线</button>
         <button type="button" @click="add('merge')">＋ 合流点</button>
@@ -61,6 +62,7 @@
         <robot-line-scene
           :robots="layout.robots"
           :layout="layout"
+          :selected-layout="selected"
           :editable="true"
           :show-detail="false"
           @select-layout="selectItem"
@@ -111,6 +113,43 @@
           </button>
         </template>
 
+        <template v-else-if="selectedDevice">
+          <div class="layout-editor__panel-title">设备属性</div>
+          <label>名称<input v-model="selectedDevice.name" /></label>
+          <label>编号<input v-model="selectedDevice.id" disabled /></label>
+          <label
+            >设备类型
+            <select v-model="selectedDevice.deviceType">
+              <option v-for="option in deviceTypeOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
+          <div class="layout-editor__field-row">
+            <label
+              >X<input v-model.number="selectedDevice.position[0]" type="number" step="0.1"
+            /></label>
+            <label
+              >Z<input v-model.number="selectedDevice.position[1]" type="number" step="0.1"
+            /></label>
+          </div>
+          <div class="layout-editor__field-row">
+            <label
+              >宽度<input v-model.number="selectedDevice.width" type="number" min="0.3" step="0.1"
+            /></label>
+            <label
+              >高度<input v-model.number="selectedDevice.height" type="number" min="0.3" step="0.1"
+            /></label>
+          </div>
+          <label
+            >深度<input v-model.number="selectedDevice.depth" type="number" min="0.3" step="0.1"
+          /></label>
+          <label
+            >旋转（弧度）<input v-model.number="selectedDevice.rotation" type="number" step="0.1"
+          /></label>
+          <label>颜色<input v-model="selectedDevice.color" type="color" /></label>
+        </template>
+
         <template v-else-if="selectedCell">
           <div class="layout-editor__panel-title">工位框属性</div>
           <label>名称<input v-model="selectedCell.name" /></label>
@@ -128,9 +167,12 @@
               >宽度<input v-model.number="selectedCell.width" type="number" min="0.5" step="0.1"
             /></label>
             <label
-              >深度<input v-model.number="selectedCell.depth" type="number" min="0.5" step="0.1"
+              >高度<input v-model.number="selectedCell.height" type="number" min="0.3" step="0.1"
             /></label>
           </div>
+          <label
+              >深度<input v-model.number="selectedCell.depth" type="number" min="0.5" step="0.1"
+          /></label>
           <label
             >旋转（弧度）<input v-model.number="selectedCell.rotation" type="number" step="0.1"
           /></label>
@@ -221,6 +263,8 @@
   import type { DashboardRobotBinding } from '@/api/edge-dashboard'
   import {
     ConveyorLayoutItem,
+    DeviceLayoutItem,
+    DeviceLayoutType,
     JunctionLayoutItem,
     ROBOT_STATUS_META,
     RobotDevice,
@@ -260,6 +304,7 @@
         saveLayout,
         resetLayout,
         addRobot,
+        addDevice,
         addConveyor,
         addWorkCell,
         addJunction,
@@ -278,6 +323,10 @@
         if (selected.value?.type !== 'conveyor') return undefined
         return findItem(selected.value) as ConveyorLayoutItem | undefined
       })
+      const selectedDevice = computed(() => {
+        if (selected.value?.type !== 'device') return undefined
+        return findItem(selected.value) as DeviceLayoutItem | undefined
+      })
       const selectedCell = computed(() => {
         if (selected.value?.type !== 'workCell') return undefined
         return findItem(selected.value) as WorkCellLayoutItem | undefined
@@ -289,6 +338,11 @@
       const layoutItems = computed<EditorListItem[]>(() => [
         ...layout.value.robots.map((item) => ({
           type: 'robot' as const,
+          id: item.id,
+          name: item.name
+        })),
+        ...layout.value.devices.map((item) => ({
+          type: 'device' as const,
           id: item.id,
           name: item.name
         })),
@@ -312,20 +366,29 @@
         status,
         label: ROBOT_STATUS_META[status].label
       }))
+      const deviceTypeOptions: Array<{ value: DeviceLayoutType; label: string }> = [
+        { value: 'generic', label: '通用设备' },
+        { value: 'machine', label: '加工设备' },
+        { value: 'inspection', label: '检测设备' }
+      ]
 
       const selectItem = (item: LayoutSelection) => {
         selected.value = item
       }
 
-      const add = (type: 'robot' | 'workCell' | 'conveyor' | 'merge' | 'split') => {
+      const add = (
+        type: 'robot' | 'device' | 'workCell' | 'conveyor' | 'merge' | 'split'
+      ) => {
         const result =
           type === 'robot'
             ? addRobot()
-            : type === 'workCell'
-              ? addWorkCell()
-              : type === 'conveyor'
-                ? addConveyor()
-                : addJunction(type)
+            : type === 'device'
+              ? addDevice()
+              : type === 'workCell'
+                ? addWorkCell()
+                : type === 'conveyor'
+                  ? addConveyor()
+                  : addJunction(type)
         selected.value = result
         saveMessage.value = '已新增，拖动到目标位置后点击保存。'
       }
@@ -385,11 +448,13 @@
         layoutSaving,
         selected,
         selectedRobot,
+        selectedDevice,
         selectedConveyor,
         selectedCell,
         selectedJunction,
         layoutItems,
         statusOptions,
+        deviceTypeOptions,
         saveMessage,
         bindingDialogOpen,
         selectItem,
@@ -590,6 +655,10 @@
 
     &__item-dot--robot {
       background: #f6a928;
+    }
+
+    &__item-dot--device {
+      background: #4db7d8;
     }
 
     &__item-dot--workCell {

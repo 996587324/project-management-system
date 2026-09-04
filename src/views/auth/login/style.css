@@ -47,6 +47,27 @@
   .custom-height {
     @apply !h-[40px];
   }
+
+  .oauth-login {
+    margin-top: 22px;
+  }
+
+  .oauth-login__divider {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 18px;
+    font-size: 12px;
+    color: var(--art-gray-500);
+  }
+
+  .oauth-login__divider::before,
+  .oauth-login__divider::after {
+    flex: 1;
+    height: 1px;
+    content: '';
+    background: var(--art-gray-300);
+  }
 }
 
 @media (height <= 760px) {

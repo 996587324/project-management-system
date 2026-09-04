@@ -4,8 +4,8 @@
       <aside class="agent-sidebar">
         <div class="sidebar-header">
           <div v-show="!sidebarCollapsed">
-            <h3>{{ assistantTitle }}</h3>
-            <p>{{ sidebarDescription }}</p>
+            <h3>{{ activeAssistantTitle }}</h3>
+            <p>{{ activeSidebarDescription }}</p>
           </div>
           <div class="sidebar-actions">
             <ElTooltip :content="sidebarCollapsed ? '展开会话栏' : '收起会话栏'" placement="right">
@@ -68,16 +68,49 @@
         <section class="chat-panel">
           <header class="panel-header">
             <div>
-              <h2>{{ panelTitle }}</h2>
-              <p>{{ panelDescription }}</p>
+              <h2>{{ activePanelTitle }}</h2>
+              <p>{{ activePanelDescription }}</p>
             </div>
             <div class="panel-header-actions">
-              <ElButton v-if="enableEmail" :icon="Message" plain @click="openLatestReplyEmailDialog"
+              <ElButton
+                v-if="enableEmail && !isChatMode"
+                :icon="Message"
+                plain
+                @click="openLatestReplyEmailDialog"
                 >发送当前回复</ElButton
               >
-              <ElTag type="primary" effect="plain">LLM 自主选工具</ElTag>
+              <ElTag :type="isChatMode ? 'info' : 'primary'" effect="plain">
+                {{ isChatMode ? '纯聊天，不访问业务数据' : '仅限所选业务域工具' }}
+              </ElTag>
             </div>
           </header>
+
+          <div v-if="showModeSelector" class="interaction-switcher">
+            <ElRadioGroup v-model="interactionMode" size="default">
+              <ElRadioButton label="Chat">聊天</ElRadioButton>
+              <ElRadioButton label="Work">工作</ElRadioButton>
+            </ElRadioGroup>
+            <ElSelect
+              v-if="interactionMode === 'Work'"
+              v-model="workAgentCode"
+              class="domain-select"
+              placeholder="选择业务域"
+            >
+              <ElOption
+                v-for="item in workDomains"
+                :key="item.code"
+                :label="item.label"
+                :value="item.code"
+              />
+            </ElSelect>
+            <span class="interaction-hint">
+              {{
+                isChatMode
+                  ? '聊天模式不会查询业务数据或执行系统操作。'
+                  : '工作模式仅可调用所选业务域已授权的工具。'
+              }}
+            </span>
+          </div>
 
           <div class="quick-actions">
             <ElButton v-for="item in suggestions" :key="item" round @click="useSuggestion(item)">
@@ -109,7 +142,7 @@
                 </template>
               </div>
             </article>
-            <ElEmpty v-if="!messages.length && !sending" :description="emptyDescription" />
+            <ElEmpty v-if="!messages.length && !sending" :description="activeEmptyDescription" />
           </div>
 
           <div v-if="latestPlan.length" class="plan-panel">
@@ -119,13 +152,13 @@
                 v-for="step in latestPlan"
                 :key="`${step.sort}-${step.toolName}`"
                 :title="step.title"
-                :description="`${step.description}${step.requiresConfirmation ? '（需要确认）' : ''}`"
+                :description="`${step.description}${step.requiresConfirmation ? confirmationPlanHint : ''}`"
               />
             </ElSteps>
           </div>
 
           <div class="composer">
-            <div v-if="allowProjectCsv && selectedFile" class="selected-file">
+            <div v-if="canProjectCsv && selectedFile" class="selected-file">
               <div class="selected-file-info">
                 <ElIcon><Upload /></ElIcon>
                 <span :title="selectedFile.name">{{ selectedFile.name }}</span>
@@ -140,14 +173,14 @@
               type="textarea"
               :rows="3"
               resize="none"
-              :placeholder="composerPlaceholder"
+              :placeholder="activeComposerPlaceholder"
               @keydown="handleComposerKeydown"
             />
             <div class="composer-actions">
-              <span>Enter 发送，Shift + Enter 换行。写入操作需确认后执行。</span>
+              <span>{{ composerConfirmationHint }}</span>
               <div class="composer-buttons">
                 <ElButton
-                  v-if="allowProjectCsv"
+                  v-if="canProjectCsv"
                   :icon="Upload"
                   :loading="fileLoading"
                   :disabled="sending"
@@ -165,7 +198,7 @@
                 </ElButton>
               </div>
               <input
-                v-if="allowProjectCsv"
+                v-if="canProjectCsv"
                 ref="fileInputRef"
                 class="agent-file-input"
                 type="file"
@@ -176,14 +209,16 @@
           </div>
         </section>
 
-        <aside class="tool-panel">
+        <aside v-if="!isChatMode" class="tool-panel">
           <section>
             <div class="section-title">工具目录</div>
             <ElScrollbar max-height="220px">
               <div v-for="tool in tools" :key="tool.name" class="tool-card">
                 <div>
                   <strong>{{ tool.title }}</strong>
-                  <ElTag v-if="tool.requiresConfirmation" size="small" type="warning">确认</ElTag>
+                  <ElTag v-if="tool.requiresConfirmation" size="small" type="warning">
+                    {{ useReplyConfirmation ? '回复确认' : '确认' }}
+                  </ElTag>
                 </div>
                 <p>{{ tool.description }}</p>
               </div>
@@ -205,6 +240,7 @@
                   v-if="
                     call.status === 'PendingConfirm' &&
                     call.requiresConfirmation &&
+                    !useReplyConfirmation &&
                     (!call.confirmed || call.agentCode === 'edge-gateway')
                   "
                   type="warning"
@@ -326,6 +362,10 @@
     allowProjectCsv?: boolean
     enableEmail?: boolean
     initialSuggestions?: string[]
+    showModeSelector?: boolean
+    initialMode?: 'Chat' | 'Work'
+    initialWorkAgentCode?: string
+    confirmByReplyOnly?: boolean
   }
 
   const props = withDefaults(defineProps<AgentExecutorProps>(), {
@@ -338,6 +378,10 @@
     composerPlaceholder: '例如：帮我看一下当前项目风险，或者生成一份本周项目周报',
     allowProjectCsv: true,
     enableEmail: true,
+    showModeSelector: false,
+    initialMode: 'Work',
+    initialWorkAgentCode: '',
+    confirmByReplyOnly: false,
     initialSuggestions: () => [
       '帮我看一下当前项目风险',
       '帮我新增一个项目',
@@ -348,7 +392,131 @@
   })
 
   const userStore = useUserStore()
-  const isProjectAgent = computed(() => props.agentCode === 'project-management')
+  type InteractionMode = 'Chat' | 'Work'
+  type WorkDomain = {
+    code: string
+    label: string
+    assistantTitle: string
+    sidebarDescription: string
+    panelTitle: string
+    panelDescription: string
+    emptyDescription: string
+    composerPlaceholder: string
+    suggestions: string[]
+    confirmByReplyOnly?: boolean
+  }
+  const workDomains: WorkDomain[] = [
+    {
+      code: 'project-management',
+      label: '项目管理',
+      assistantTitle: '项目管理助手',
+      sidebarDescription: '项目管理智能助手',
+      panelTitle: '项目 Agent',
+      panelDescription: '可查询项目概况、任务风险、文件归档，并生成待确认执行计划。',
+      emptyDescription: '输入一个问题，让项目管理助手帮你查看项目状态。',
+      composerPlaceholder: '例如：帮我看一下当前项目风险，或者生成一份本周项目周报',
+      suggestions: [
+        '帮我看一下当前项目风险',
+        '帮我新增一个项目',
+        '批量导入项目文件',
+        '生成一份本周项目周报'
+      ]
+    },
+    {
+      code: 'edge-gateway',
+      label: '边缘计算',
+      assistantTitle: '边缘计算助手',
+      sidebarDescription: '边缘运行与转发诊断',
+      panelTitle: '边缘计算中心 Agent',
+      panelDescription: '可查询设备、连接、实时数据、队列、上传与事件，并生成需要确认的执行计划。',
+      emptyDescription: '输入一个问题，让边缘计算助手检查运行状态。',
+      composerPlaceholder: '例如：哪些连接最近没有收到数据，或者查询最近失败的转发记录',
+      suggestions: [
+        '查看边缘计算中心运行概况',
+        '哪些连接最近没有收到数据',
+        '查询最近失败的转发记录',
+        '查看最近的错误事件'
+      ]
+    },
+    {
+      code: 'production-dashboard',
+      label: '生产看板',
+      assistantTitle: '生产看板助手',
+      sidebarDescription: '看板数据与场景配置',
+      panelTitle: '生产看板 Agent',
+      panelDescription:
+        '可查询设备状态、统计和故障；回复“确认”后可新增或调整看板配置。删除仍由人工配置页面完成。',
+      emptyDescription: '输入一个问题，让生产看板助手查询数据或生成配置调整计划。',
+      composerPlaceholder:
+        '例如：查看 W1 今天的故障汇总，或把 W1-R-01 的工位名称改为自动上快装工位',
+      suggestions: [
+        '查看各线体当前机械手运行状态',
+        '查询今天故障次数最多的机械手',
+        '查看 W1 线的场景和图表配置',
+        '在 W1 线新增一个设备组件',
+        '把 W1-R-01 移动到坐标 4.5，-1'
+      ],
+      confirmByReplyOnly: true
+    }
+  ]
+  const chatProfile = {
+    assistantTitle: '智能助手',
+    sidebarDescription: '通用聊天与方案讨论',
+    panelTitle: '聊天',
+    panelDescription: '可自由讨论、分析和撰写内容；不会访问业务数据或执行系统操作。',
+    emptyDescription: '输入任何想讨论的问题。',
+    composerPlaceholder: '例如：帮我梳理一个实施方案，或解释一个业务概念',
+    suggestions: [
+      '帮我梳理一下生产看板的优化方向',
+      '解释一下 OEE 的计算方式',
+      '帮我写一份项目周报模板'
+    ]
+  }
+  const interactionMode = ref<InteractionMode>(props.initialMode)
+  const workAgentCode = ref(props.initialWorkAgentCode || props.agentCode)
+  const isChatMode = computed(() => props.showModeSelector && interactionMode.value === 'Chat')
+  const activeAgentCode = computed(() => (isChatMode.value ? 'chat' : workAgentCode.value))
+  const activeWorkDomain = computed(
+    () => workDomains.find((item) => item.code === activeAgentCode.value) || workDomains[0]
+  )
+  const activeProfile = computed(() => (isChatMode.value ? chatProfile : activeWorkDomain.value))
+  const activeAssistantTitle = computed(() =>
+    props.showModeSelector ? activeProfile.value.assistantTitle : props.assistantTitle
+  )
+  const activeSidebarDescription = computed(() =>
+    props.showModeSelector ? activeProfile.value.sidebarDescription : props.sidebarDescription
+  )
+  const activePanelTitle = computed(() =>
+    props.showModeSelector ? activeProfile.value.panelTitle : props.panelTitle
+  )
+  const activePanelDescription = computed(() =>
+    props.showModeSelector ? activeProfile.value.panelDescription : props.panelDescription
+  )
+  const activeEmptyDescription = computed(() =>
+    props.showModeSelector ? activeProfile.value.emptyDescription : props.emptyDescription
+  )
+  const activeComposerPlaceholder = computed(() =>
+    props.showModeSelector ? activeProfile.value.composerPlaceholder : props.composerPlaceholder
+  )
+  const useReplyConfirmation = computed(
+    () =>
+      !isChatMode.value &&
+      (props.showModeSelector
+        ? Boolean(activeWorkDomain.value.confirmByReplyOnly)
+        : props.confirmByReplyOnly)
+  )
+  const confirmationPlanHint = computed(() =>
+    useReplyConfirmation.value ? '（回复“确认”后执行）' : '（需要确认）'
+  )
+  const composerConfirmationHint = computed(() =>
+    useReplyConfirmation.value
+      ? 'Enter 发送，Shift + Enter 换行。新增或调整计划生成后，直接回复“确认”执行。'
+      : 'Enter 发送，Shift + Enter 换行。写入操作需确认后执行。'
+  )
+  const isProjectAgent = computed(
+    () => !isChatMode.value && activeAgentCode.value === 'project-management'
+  )
+  const canProjectCsv = computed(() => props.allowProjectCsv && isProjectAgent.value)
   const projects = ref<Api.ProjectManage.ProjectItem[]>([])
   const conversations = ref<Api.Agent.Conversation[]>([])
   const messages = ref<Api.Agent.Message[]>([])
@@ -388,7 +556,7 @@
   const loadBaseData = async () => {
     const [projectList, toolList] = await Promise.all([
       isProjectAgent.value ? fetchProjectList() : Promise.resolve([]),
-      fetchAgentTools(props.agentCode)
+      fetchAgentTools(activeAgentCode.value)
     ])
     projects.value = projectList
     tools.value = toolList
@@ -402,7 +570,7 @@
         userId: currentUserId.value,
         current: 1,
         size: 20,
-        agentCode: props.agentCode
+        agentCode: activeAgentCode.value
       })
       conversations.value = data.records || []
     } finally {
@@ -512,11 +680,11 @@
       const response = await streamAgentMessage(
         {
           conversationId: activeConversationId.value,
-          agentCode: props.agentCode,
+          agentCode: activeAgentCode.value,
           message: text,
           userId: currentUserId.value,
           scopeProjectName: isProjectAgent.value ? scopeProjectName.value : undefined,
-          mode: 'Online',
+          mode: isChatMode.value ? 'Chat' : 'Work',
           ...attachment
         },
         {
@@ -562,11 +730,11 @@
       await nextTick(scrollAllMessagesToBottom)
     } catch (error) {
       ElMessage.error(
-        error instanceof Error ? error.message : `${props.assistantTitle} 处理失败，请重试`
+        error instanceof Error ? error.message : `${activeAssistantTitle.value} 处理失败，请重试`
       )
     } finally {
       sending.value = false
-      sendingStatus.value = `正在连接 ${props.assistantTitle}`
+      sendingStatus.value = `正在连接 ${activeAssistantTitle.value}`
       streamingReply.value = ''
       await nextTick(scrollAllMessagesToBottom)
     }
@@ -587,7 +755,7 @@
     input.value = ''
     if (!file) return
     if (sending.value) {
-      ElMessage.warning(`请等待当前${props.assistantTitle}请求完成`)
+      ElMessage.warning(`请等待当前${activeAssistantTitle.value}请求完成`)
       return
     }
     if (!file.name.toLowerCase().endsWith('.csv')) {
@@ -784,7 +952,17 @@
     scrollToBottom()
   }
 
-  onMounted(loadBaseData)
+  watch(activeAgentCode, async () => {
+    if (!props.showModeSelector) return
+    startConversation()
+    suggestions.value = [...activeProfile.value.suggestions]
+    await loadBaseData()
+  })
+
+  onMounted(async () => {
+    if (props.showModeSelector) suggestions.value = [...activeProfile.value.suggestions]
+    await loadBaseData()
+  })
 </script>
 
 <style lang="scss" scoped>
@@ -937,6 +1115,27 @@
     flex-wrap: wrap;
     gap: 8px;
     margin: 14px 0;
+  }
+
+  .interaction-switcher {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    margin-top: 14px;
+    background: var(--el-fill-color-lighter);
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 8px;
+  }
+
+  .domain-select {
+    width: 150px;
+  }
+
+  .interaction-hint {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
   }
 
   .agent-file-input {

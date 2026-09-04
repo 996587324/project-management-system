@@ -69,13 +69,11 @@
       ])
   }
 
- 
-
   interface Props {
     visible: boolean
     editData?: AppRouteRecord | any
     type?: 'menu' | 'button'
-    action:'add' | 'edit'
+    action: 'add' | 'edit'
     lockType?: boolean
   }
 
@@ -126,11 +124,11 @@
 
   const rules = reactive<FormRules>({
     name: [
-      { required: true, message: '请输入菜单名称', trigger: 'blur' },
+      { required: true, message: '请输入菜单标识', trigger: 'blur' },
       { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
     ],
     path: [{ required: true, message: '请输入路由地址', trigger: 'blur' }],
-    label: [{ required: true, message: '输入权限标识', trigger: 'blur' }],
+    label: [{ required: true, message: '请输入菜单名称', trigger: 'blur' }],
     authName: [{ required: true, message: '请输入权限名称', trigger: 'blur' }],
     authLabel: [{ required: true, message: '请输入权限标识', trigger: 'blur' }]
   })
@@ -147,7 +145,7 @@
     if (form.menuType === 'menu') {
       return [
         ...baseItems,
-        { label: '菜单名称', key: 'name', type: 'input', props: { placeholder: '菜单名称' } },
+        { label: '菜单名称', key: 'label', type: 'input', props: { placeholder: '菜单名称' } },
         {
           label: createLabelTooltip(
             '路由地址',
@@ -157,7 +155,12 @@
           type: 'input',
           props: { placeholder: '如：/dashboard 或 console' }
         },
-        { label: '权限标识', key: 'label', type: 'input', props: { placeholder: '如：User' } },
+        {
+          label: '菜单标识',
+          key: 'name',
+          type: 'input',
+          props: { placeholder: '如：User（用于路由和权限识别）' }
+        },
         {
           label: createLabelTooltip(
             '组件路径',
@@ -196,10 +199,7 @@
           props: { placeholder: '如：New、Hot' }
         },
         {
-          label: createLabelTooltip(
-            '父路径',
-            '配置父级菜单路径（如：/system）\n'
-          ),
+          label: createLabelTooltip('父路径', '配置父级菜单路径（如：/system）\n'),
           key: 'activePath',
           type: 'input',
           props: { placeholder: '如：/system' }
@@ -259,10 +259,10 @@
     formRef.value?.reset()
     form.menuType = 'menu'
   }
-const getParentPath = (path: string) => {
-  const parts = path.split('/').filter(Boolean)
-  return parts.length <= 1 ? '' : '/' + parts[0]
-}
+  const getParentPath = (path: string) => {
+    const parts = path.split('/').filter(Boolean)
+    return parts.length <= 1 ? '' : '/' + parts[0]
+  }
 
   /**
    * 加载表单数据（编辑模式）
@@ -275,9 +275,11 @@ const getParentPath = (path: string) => {
     if (form.menuType === 'menu') {
       const row = props.editData
       form.id = row.id || 0
-      form.name = formatMenuTitle(row.meta?.title || '')
+      // 后端约定：name 对应 sys_menu.MenuName（菜单标识），label 对应 MetaTitle（页面显示名称）。
+      // 原先这里与表单字段写反，提交后会把菜单名称和标识互换，导致再次编辑时显示错误。
+      form.name = row.name || ''
       form.path = row.path || ''
-      form.label = row.name || ''
+      form.label = formatMenuTitle(row.meta?.title || '')
       form.component = row.component || ''
       form.icon = row.meta?.icon || ''
       form.sort = row.meta?.sort || 1
@@ -294,8 +296,6 @@ const getParentPath = (path: string) => {
       form.activePath = getParentPath(row.component || '')
       form.roles = row.meta?.roles || []
       form.isFullPage = row.meta?.isFullPage ?? false
-
-      
     } else {
       const row = props.editData
       form.authName = row.title || ''
@@ -303,7 +303,6 @@ const getParentPath = (path: string) => {
       form.authIcon = row.icon || ''
       form.authSort = row.sort || 1
     }
-
   }
 
   /**
@@ -316,7 +315,7 @@ const getParentPath = (path: string) => {
       await formRef.value.validate()
       emit('submit', { ...form })
       // const list   = await fetchSetMenu(form);
-     // ElMessage.success(`${isEdit.value ? '编辑' : '新增'}成功`)
+      // ElMessage.success(`${isEdit.value ? '编辑' : '新增'}成功`)
       handleCancel()
     } catch {
       ElMessage.error('表单校验失败，请检查输入')

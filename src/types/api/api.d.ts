@@ -74,6 +74,17 @@ declare namespace Api {
       refreshToken: string
     }
 
+    /** OAuth 2.0 登录公开状态 */
+    interface OAuth2Status {
+      enabled: boolean
+      displayName: string
+    }
+
+    /** OAuth 2.0 一次性票据兑换参数 */
+    interface OAuth2CompleteParams {
+      ticket: string
+    }
+
     /** 修改当前用户密码参数 */
     interface ChangePasswordParams {
       oldPassword: string
@@ -452,7 +463,7 @@ declare namespace Api {
       userId?: number | string
       title?: string
       scopeProjectName?: string
-      mode?: string
+      mode?: 'Chat' | 'Work' | 'Online'
     }
 
     interface SendRequest {
@@ -461,7 +472,7 @@ declare namespace Api {
       message: string
       userId?: number | string
       scopeProjectName?: string
-      mode?: string
+      mode?: 'Chat' | 'Work' | 'Online'
       autoExecute?: boolean
       attachmentType?: 'project-csv'
       attachmentName?: string

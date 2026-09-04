@@ -3,23 +3,19 @@
     <section v-if="panelVisible" class="agent-floating-panel" :style="panelStyle">
       <header class="floating-header" @pointerdown="startDrag">
         <div>
-          <strong>项目 Agent</strong>
-          <span>LLM 自主选工具</span>
+          <strong>全局查询助手</strong>
+          <span>仅查询项目、边缘计算和生产看板信息</span>
         </div>
         <div class="floating-actions" @pointerdown.stop>
-          <ElTooltip content="发送当前回复" placement="top">
-            <ElButton
-              circle
-              :icon="Message"
-              :disabled="!hasAssistantMessage"
-              size="small"
-              @click.stop="openEmailDialog"
-            />
+          <ElTooltip :content="panelExpanded ? '还原窗口' : '放大窗口'" placement="top">
+            <ElButton circle :icon="FullScreen" size="small" @click.stop="togglePanelSize" />
           </ElTooltip>
           <ElTooltip content="新建对话" placement="top">
             <ElButton circle :icon="Plus" size="small" @click.stop="startConversation" />
           </ElTooltip>
-          <ElButton circle :icon="Close" size="small" @click.stop="panelVisible = false" />
+          <ElTooltip content="最小化" placement="top">
+            <ElButton circle :icon="Minus" size="small" @click.stop="minimizePanel" />
+          </ElTooltip>
         </div>
       </header>
 
@@ -45,72 +41,25 @@
             </template>
           </div>
         </article>
-        <ElEmpty
-          v-if="!messages.length && !sending"
-          description="输入问题，让 项目管理助手 帮你看项目状态。"
-        />
-      </div>
-
-      <div v-if="pendingToolCalls.length" class="pending-tool-list">
-        <div v-for="call in pendingToolCalls" :key="call.id" class="pending-tool-item">
-          <span>{{ call.toolTitle }}待确认</span>
-          <ElButton
-            type="warning"
-            size="small"
-            :loading="confirmingToolId === call.id"
-            @click="confirmTool(call)"
-          >
-            {{ call.toolName === 'project.create' ? '确认新增' : '确认执行' }}
-          </ElButton>
-        </div>
+        <ElEmpty v-if="!messages.length && !sending" description="可查询各板块的业务信息。" />
       </div>
 
       <div class="floating-composer">
-        <div v-if="selectedFile" class="selected-file">
-          <div class="selected-file-info">
-            <ElIcon><Upload /></ElIcon>
-            <span :title="selectedFile.name">{{ selectedFile.name }}</span>
-            <small>已加载</small>
-          </div>
-          <ElTooltip content="移除文件" placement="top">
-            <ElButton text circle :icon="Close" @click="clearSelectedFile" />
-          </ElTooltip>
-        </div>
         <div class="composer-row">
           <ElInput
             v-model="messageText"
             type="textarea"
             :rows="2"
             resize="none"
-            placeholder="输入问题，Enter 发送"
+            placeholder="输入查询问题，Enter 发送"
             @keydown="handleComposerKeydown"
           />
           <div class="composer-buttons">
-            <ElButton
-              :icon="Upload"
-              :loading="fileLoading"
-              :disabled="sending"
-              @click="openFilePicker"
-            >
-              导入文件
-            </ElButton>
-            <ElButton
-              type="primary"
-              :loading="sending"
-              :disabled="fileLoading"
-              @click="sendMessage"
-            >
+            <ElButton type="primary" :loading="sending" :disabled="sending" @click="sendMessage">
               发送
             </ElButton>
           </div>
         </div>
-        <input
-          ref="fileInputRef"
-          class="agent-file-input"
-          type="file"
-          accept=".csv,text/csv"
-          @change="handleFileChange"
-        />
       </div>
     </section>
 
@@ -124,84 +73,13 @@
         @pointerdown="startButtonDrag"
       />
     </ElTooltip>
-
-    <ElDialog v-model="emailDialogVisible" title="发送邮件" width="680px" destroy-on-close>
-      <ElForm label-width="76px">
-        <ElFormItem label="收件人" required>
-          <ElSelect
-            v-model="emailForm.toEmails"
-            multiple
-            filterable
-            remote
-            reserve-keyword
-            allow-create
-            default-first-option
-            :remote-method="searchEmailUsers"
-            :loading="emailUserLoading"
-            placeholder="选择用户邮箱或输入邮箱"
-            style="width: 100%"
-            @focus="loadEmailUsers"
-          >
-            <ElOption
-              v-for="item in emailUserOptions"
-              :key="getUserEmail(item)"
-              :label="formatEmailUserLabel(item)"
-              :value="getUserEmail(item)"
-              :disabled="!getUserEmail(item)"
-            />
-          </ElSelect>
-        </ElFormItem>
-        <ElFormItem label="抄送">
-          <ElSelect
-            v-model="emailForm.ccEmails"
-            multiple
-            filterable
-            remote
-            reserve-keyword
-            allow-create
-            default-first-option
-            :remote-method="searchEmailUsers"
-            :loading="emailUserLoading"
-            placeholder="选择抄送人或输入邮箱"
-            style="width: 100%"
-            @focus="loadEmailUsers"
-          >
-            <ElOption
-              v-for="item in emailUserOptions"
-              :key="`cc-${getUserEmail(item)}`"
-              :label="formatEmailUserLabel(item)"
-              :value="getUserEmail(item)"
-              :disabled="!getUserEmail(item)"
-            />
-          </ElSelect>
-        </ElFormItem>
-        <ElFormItem label="主题" required>
-          <ElInput v-model="emailForm.subject" maxlength="160" show-word-limit />
-        </ElFormItem>
-        <ElFormItem label="正文" required>
-          <ElInput v-model="emailForm.body" type="textarea" :rows="12" resize="vertical" />
-        </ElFormItem>
-      </ElForm>
-      <template #footer>
-        <ElButton @click="emailDialogVisible = false">取消</ElButton>
-        <ElButton type="primary" :loading="emailSending" @click="sendEmail">确认发送</ElButton>
-      </template>
-    </ElDialog>
   </div>
 </template>
 
 <script setup lang="ts">
-  import {
-    closeAgentSocket,
-    confirmAgentToolCall,
-    createAgentEmailDraft,
-    readAgentProjectCsv,
-    sendAgentEmail,
-    streamAgentMessage
-  } from '@/api/agent'
-  import { fetchGetUserList } from '@/api/system-manage'
+  import { closeAgentSocket, streamAgentMessage } from '@/api/agent'
   import { useUserStore } from '@/store/modules/user'
-  import { ChatDotRound, Close, Message, Plus, Upload } from '@element-plus/icons-vue'
+  import { ChatDotRound, FullScreen, Minus, Plus } from '@element-plus/icons-vue'
   import { ElMessage } from 'element-plus'
 
   defineOptions({ name: 'AgentFloatingChat' })
@@ -210,30 +88,14 @@
   const userStore = useUserStore()
 
   const messages = ref<Api.Agent.Message[]>([])
-  const toolCalls = ref<Api.Agent.ToolCall[]>([])
   const activeConversationId = ref<number>()
   const messageText = ref('')
   const sending = ref(false)
   const sendingStatus = ref('正在连接 Agent')
   const streamingReply = ref('')
-  const fileLoading = ref(false)
-  const confirmingToolId = ref<number>()
-  const emailSending = ref(false)
-  const emailDialogVisible = ref(false)
-  const emailUserLoading = ref(false)
   const panelVisible = ref(false)
+  const panelExpanded = ref(false)
   const messageListRef = ref<HTMLElement>()
-  const fileInputRef = ref<HTMLInputElement>()
-  const selectedFile = ref<{ name: string; content: string }>()
-  const emailUserOptions = ref<Api.SystemManage.UserListItem[]>([])
-  const emailForm = reactive<Api.Agent.EmailSendRequest>({
-    conversationId: undefined,
-    userId: '',
-    toEmails: [],
-    ccEmails: [],
-    subject: '',
-    body: ''
-  })
   const position = reactive({ x: 0, y: 0 })
   const dragState = reactive({
     dragging: false,
@@ -245,19 +107,16 @@
   })
 
   const visibleOnPage = computed(() => {
-    return Boolean(userStore.accessToken) && !route.path.startsWith('/auth')
+    // 公开看板是纯展示入口，不能在页面上保留任何可交互的业务入口。
+    return (
+      Boolean(userStore.accessToken) &&
+      !route.path.startsWith('/auth') &&
+      route.meta.publicReadOnly !== true
+    )
   })
 
   const currentUserId = computed(() =>
     String(userStore.info?.userId || userStore.info?.userName || '')
-  )
-  const hasAssistantMessage = computed(() =>
-    messages.value.some((item) => item.role === 'assistant')
-  )
-  const pendingToolCalls = computed(() =>
-    toolCalls.value.filter(
-      (item) => item.status === 'PendingConfirm' && item.requiresConfirmation && !item.confirmed
-    )
   )
 
   watch(
@@ -269,7 +128,9 @@
 
   const panelStyle = computed(() => ({
     left: `${position.x}px`,
-    top: `${position.y}px`
+    top: `${position.y}px`,
+    width: panelExpanded.value ? 'calc(100vw - 32px)' : 'min(420px, calc(100vw - 32px))',
+    height: panelExpanded.value ? 'calc(100vh - 32px)' : 'min(620px, calc(100vh - 32px))'
   }))
 
   const buttonStyle = computed(() => ({
@@ -280,32 +141,19 @@
   const startConversation = () => {
     activeConversationId.value = undefined
     messages.value = []
-    toolCalls.value = []
     messageText.value = ''
     streamingReply.value = ''
-    clearSelectedFile()
   }
 
   const sendMessage = async () => {
-    const file = selectedFile.value
-    const text =
-      messageText.value.trim() ||
-      (file ? `请分析项目文件“${file.name}”，整理待写入项目并生成确认计划。` : '')
+    const text = messageText.value.trim()
     if (!text) {
       ElMessage.warning('请输入问题')
       return
     }
     if (sending.value) return
-    const attachment: AgentMessageAttachment | undefined = file
-      ? {
-          attachmentType: 'project-csv',
-          attachmentName: file.name,
-          attachmentContent: file.content
-        }
-      : undefined
     messageText.value = ''
-    clearSelectedFile()
-    await sendChatMessage(text, attachment)
+    await sendChatMessage(text)
   }
 
   const handleComposerKeydown = (event: Event | KeyboardEvent) => {
@@ -315,12 +163,7 @@
     void sendMessage()
   }
 
-  type AgentMessageAttachment = Pick<
-    Api.Agent.SendRequest,
-    'attachmentType' | 'attachmentName' | 'attachmentContent'
-  >
-
-  const sendChatMessage = async (text: string, attachment?: AgentMessageAttachment) => {
+  const sendChatMessage = async (text: string) => {
     if (sending.value) return
 
     sending.value = true
@@ -341,8 +184,8 @@
           conversationId: activeConversationId.value,
           message: text,
           userId: currentUserId.value,
-          mode: 'Online',
-          ...attachment
+          agentCode: 'query-assistant',
+          mode: 'Work'
         },
         {
           onAccepted: (progress) => {
@@ -359,12 +202,6 @@
         }
       )
       activeConversationId.value = response.conversationId
-      const incomingToolCalls = response.toolCalls || []
-      const incomingToolCallIds = new Set(incomingToolCalls.map((item) => item.id))
-      toolCalls.value = [
-        ...incomingToolCalls,
-        ...toolCalls.value.filter((item) => !incomingToolCallIds.has(item.id))
-      ]
       messages.value.push({
         id: Date.now() + 1,
         conversationId: response.conversationId,
@@ -382,166 +219,26 @@
     }
   }
 
-  const openFilePicker = () => {
-    fileInputRef.value?.click()
-  }
-
-  const clearSelectedFile = () => {
-    selectedFile.value = undefined
-    if (fileInputRef.value) fileInputRef.value.value = ''
-  }
-
-  const handleFileChange = async (event: Event) => {
-    const input = event.target as HTMLInputElement
-    const file = input.files?.[0]
-    input.value = ''
-    if (!file) return
-    if (sending.value) {
-      ElMessage.warning('请等待当前 Agent 请求完成')
-      return
-    }
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      ElMessage.warning('请选择 CSV 文件')
-      return
-    }
-
-    fileLoading.value = true
-    try {
-      const csvContent = await readAgentProjectCsv(file)
-      selectedFile.value = { name: file.name, content: csvContent }
-      ElMessage.success(`文件“${file.name}”已加载`)
-    } catch (error) {
-      ElMessage.error(error instanceof Error ? error.message : '文件加载失败')
-    } finally {
-      fileLoading.value = false
-    }
-  }
-
-  const confirmTool = async (call: Api.Agent.ToolCall) => {
-    confirmingToolId.value = call.id
-    try {
-      const updated = await confirmAgentToolCall(call.id, {
-        toolCallId: call.id,
-        userId: currentUserId.value,
-        remark: '悬浮 Agent 确认'
-      })
-      const index = toolCalls.value.findIndex((item) => item.id === call.id)
-      if (index >= 0) toolCalls.value[index] = updated
-      messages.value.push({
-        id: Date.now(),
-        conversationId: updated.conversationId,
-        role: 'assistant',
-        content: readToolResultMessage(updated.responseJson) || `“${updated.toolTitle}”执行完成。`,
-        createTime: new Date().toISOString()
-      })
-      ElMessage.success(
-        ['Success', 'PartialSuccess'].includes(updated.status) ? '已确认执行' : '执行未成功'
-      )
-      await nextTick(scrollToBottom)
-    } finally {
-      confirmingToolId.value = undefined
-    }
-  }
-
-  const readToolResultMessage = (responseJson: string) => {
-    try {
-      const result = JSON.parse(responseJson) as { message?: string; Message?: string }
-      return result.message || result.Message || ''
-    } catch {
-      return ''
-    }
-  }
-
-  let emailSearchTimer: ReturnType<typeof setTimeout> | undefined
-
-  const getUserEmail = (item: Api.SystemManage.UserListItem) =>
-    String(item.email || item.userEmail || '')
-
-  const formatEmailUserLabel = (item: Api.SystemManage.UserListItem) => {
-    const email = getUserEmail(item)
-    const name = item.nickName || item.userName || item.userId || item.id || email
-    return email ? `${name} <${email}>` : String(name)
-  }
-
-  const loadEmailUsers = async (keyword = '') => {
-    emailUserLoading.value = true
-    try {
-      const result = await fetchGetUserList({
-        current: 1,
-        size: 30,
-        keyword,
-        enabled: true
-      })
-      emailUserOptions.value = (result.records || []).filter((item) => Boolean(getUserEmail(item)))
-    } finally {
-      emailUserLoading.value = false
-    }
-  }
-
-  const searchEmailUsers = (keyword: string) => {
-    if (emailSearchTimer) clearTimeout(emailSearchTimer)
-    emailSearchTimer = setTimeout(() => {
-      loadEmailUsers(keyword.trim())
-    }, 250)
-  }
-
-  const openEmailDialog = async () => {
-    const latestAssistant = [...messages.value].reverse().find((item) => item.role === 'assistant')
-    if (!latestAssistant) {
-      ElMessage.warning('暂无可发送的 Agent 回复')
-      return
-    }
-
-    const draft = await createAgentEmailDraft({
-      conversationId: activeConversationId.value,
-      userId: currentUserId.value,
-      content: latestAssistant.content
-    })
-    Object.assign(emailForm, {
-      conversationId: draft.conversationId || activeConversationId.value,
-      userId: currentUserId.value,
-      toEmails: [],
-      ccEmails: [],
-      subject: draft.subject,
-      body: draft.body
-    })
-    emailDialogVisible.value = true
-    loadEmailUsers()
-  }
-
-  const sendEmail = async () => {
-    if (!emailForm.toEmails.length) {
-      ElMessage.warning('请选择或输入收件人')
-      return
-    }
-    if (!emailForm.subject.trim()) {
-      ElMessage.warning('请输入邮件主题')
-      return
-    }
-    if (!emailForm.body.trim()) {
-      ElMessage.warning('请输入邮件正文')
-      return
-    }
-
-    emailSending.value = true
-    try {
-      const result = await sendAgentEmail({
-        ...emailForm,
-        userId: currentUserId.value,
-        toEmails: emailForm.toEmails.map((item) => item.trim()).filter(Boolean),
-        ccEmails: emailForm.ccEmails.map((item) => item.trim()).filter(Boolean)
-      })
-      ElMessage.success(result.message || '邮件发送成功')
-      emailDialogVisible.value = false
-    } finally {
-      emailSending.value = false
-    }
-  }
-
   const openPanel = async () => {
     panelVisible.value = true
     clampPosition(true)
     await nextTick(scrollToBottom)
+  }
+
+  const minimizePanel = () => {
+    panelExpanded.value = false
+    panelVisible.value = false
+    clampPosition(false)
+  }
+
+  const togglePanelSize = () => {
+    panelExpanded.value = !panelExpanded.value
+    if (panelExpanded.value) {
+      position.x = 16
+      position.y = 16
+    } else {
+      clampPosition(true)
+    }
   }
 
   const startButtonDrag = (event: PointerEvent) => {
@@ -554,6 +251,7 @@
   }
 
   const startDrag = (event: PointerEvent) => {
+    if (panelExpanded.value) return
     event.preventDefault()
     dragState.dragging = true
     dragState.moved = false
@@ -582,8 +280,16 @@
 
   const clampPosition = (forPanel: boolean) => {
     const margin = 12
-    const width = forPanel ? Math.min(420, window.innerWidth - 32) : 52
-    const height = forPanel ? Math.min(620, window.innerHeight - 32) : 52
+    const width = panelExpanded.value
+      ? window.innerWidth - 32
+      : forPanel
+        ? Math.min(420, window.innerWidth - 32)
+        : 52
+    const height = panelExpanded.value
+      ? window.innerHeight - 32
+      : forPanel
+        ? Math.min(620, window.innerHeight - 32)
+        : 52
     position.x = Math.min(Math.max(position.x, margin), window.innerWidth - width - margin)
     position.y = Math.min(Math.max(position.y, margin), window.innerHeight - height - margin)
   }
@@ -609,6 +315,10 @@
   })
 
   const handleResize = () => {
+    if (panelExpanded.value) {
+      position.x = 16
+      position.y = 16
+    }
     clampPosition(panelVisible.value)
   }
 </script>

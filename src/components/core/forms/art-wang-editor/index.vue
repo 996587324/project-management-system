@@ -22,6 +22,7 @@
   import { onBeforeUnmount, onMounted, shallowRef, computed } from 'vue'
   import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
   import { useUserStore } from '@/store/modules/user'
+  import { getApiUrl } from '@/utils/runtime-config'
   import EmojiText from '@/utils/ui/emojo'
   import { IDomEditor, IToolbarConfig, IEditorConfig } from '@wangeditor/editor'
 
@@ -72,8 +73,7 @@
 
   // 计算属性：上传服务器地址
   const uploadServer = computed(
-    () =>
-      props.uploadConfig?.server || `${import.meta.env.VITE_API_URL}/api/common/upload/wangeditor`
+    () => props.uploadConfig?.server || getApiUrl('/api/common/upload/wangeditor')
   )
 
   // 合并上传配置

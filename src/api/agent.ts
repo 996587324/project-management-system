@@ -1,5 +1,6 @@
 import request from '@/utils/http'
 import { useUserStore } from '@/store/modules/user'
+import { getWebSocketBaseUrl } from '@/utils/runtime-config'
 
 type RawConversation = Api.Agent.Conversation & {
   Id?: number
@@ -268,11 +269,12 @@ function getAgentAccessToken() {
 }
 
 function createAgentSocketUrl(token: string) {
-  const apiBase = String(import.meta.env.VITE_API_URL || '').trim()
-  const base = apiBase || '/'
+  const webSocketBase = getWebSocketBaseUrl()
+  const base = webSocketBase || '/'
   const endpoint = `${base.replace(/\/$/, '')}/ws/agent`
   const url = new URL(endpoint, window.location.origin)
-  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  if (url.protocol === 'https:') url.protocol = 'wss:'
+  if (url.protocol === 'http:') url.protocol = 'ws:'
   url.searchParams.set('access_token', token)
   return url.toString()
 }

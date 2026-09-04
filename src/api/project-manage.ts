@@ -1,4 +1,5 @@
 import request from '@/utils/http'
+import { getApiUrl } from '@/utils/runtime-config'
 
 type RawProjectItem = Api.ProjectManage.ProjectItem & {
   Id?: number | string
@@ -301,8 +302,7 @@ export async function importProjects(formData: FormData) {
 }
 
 export function getProjectImportTemplateUrl() {
-  const baseUrl = import.meta.env.VITE_API_URL || ''
-  return `${baseUrl.replace(/\/$/, '')}/api/ProjectManage/projects/import-template`
+  return getApiUrl('/api/ProjectManage/projects/import-template')
 }
 
 export function updateProject(params: Api.ProjectManage.ProjectSaveParams) {
@@ -429,11 +429,9 @@ export async function fetchProjectDashboard(params?: { userId?: number | string 
 }
 
 export function getProjectFileDownloadUrl(id: number | string) {
-  const baseUrl = import.meta.env.VITE_API_URL || ''
-  return `${baseUrl.replace(/\/$/, '')}/api/ProjectManage/files/${id}/download`
+  return getApiUrl(`/api/ProjectManage/files/${id}/download`)
 }
 
 export function getProjectFilePreviewUrl(id: number | string) {
-  const baseUrl = import.meta.env.VITE_API_URL || ''
-  return `${baseUrl.replace(/\/$/, '')}/api/ProjectManage/files/${id}/preview`
+  return getApiUrl(`/api/ProjectManage/files/${id}/preview`)
 }

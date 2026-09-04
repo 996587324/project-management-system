@@ -223,6 +223,13 @@ function handleLoginStatus(
     return true
   }
 
+  // 兼容用户收藏的管理端看板地址：未登录访问看板时直接进入公开只读页，
+  // 不显示登录页，也不会把管理端配置按钮暴露给匿名访问者。
+  if (!userStore.isLogin && isProductionDashboardBoardPath(to.path)) {
+    next({ path: '/public/production-dashboard', replace: true })
+    return false
+  }
+
   if (userStore.isLogin && userStore.accessToken) {
     return true
   }
@@ -234,6 +241,11 @@ function handleLoginStatus(
     query: { redirect: to.fullPath }
   })
   return false
+}
+
+/** 管理端看板查看地址的匿名兼容入口。布局编辑地址不在此范围内。 */
+function isProductionDashboardBoardPath(path: string): boolean {
+  return path === '/production-dashboard' || path === '/production-dashboard/board'
 }
 
 /**

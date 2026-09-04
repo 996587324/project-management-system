@@ -5,7 +5,10 @@
         ><b>{{ widget.title }}</b
         ><small>{{ sourceLabel }} · {{ periodLabel }}</small></div
       >
-      <span :class="{ loading }"><i />{{ loading ? '更新中' : `${widget.refreshSeconds}s` }}</span>
+      <div class="dashboard-widget__actions">
+        <button type="button" title="查看明细数据" @click="emit('view-details', widget)">查看详情</button>
+        <span :class="{ loading }"><i />{{ loading ? '更新中' : `${widget.refreshSeconds}s` }}</span>
+      </div>
     </header>
 
     <el-table
@@ -68,6 +71,7 @@
     }>(),
     { publicAccess: false }
   )
+  const emit = defineEmits<{ 'view-details': [widget: DashboardWidget] }>()
 
   const widgetRef = ref<HTMLElement | null>(null)
   const chartRef = ref<HTMLElement | null>(null)
@@ -536,6 +540,7 @@
     color: #7899aa;
   }
 
+  .dashboard-widget__actions,
   .dashboard-widget > header > span {
     display: flex;
     gap: 6px;
@@ -553,6 +558,21 @@
 
   .dashboard-widget > header > span.loading i {
     background: #f6b852;
+  }
+
+  .dashboard-widget__actions > button {
+    padding: 2px 4px;
+    color: #65d6f4;
+    font-size: 12px;
+    line-height: 18px;
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    border-radius: 3px;
+  }
+
+  .dashboard-widget__actions > button:hover {
+    background: rgb(70 199 235 / 14%);
   }
 
   .dashboard-widget__chart {

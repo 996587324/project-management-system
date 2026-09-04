@@ -1,4 +1,5 @@
 import request from '@/utils/http'
+import { getApiUrl } from '@/utils/runtime-config'
 
 export interface EdgePageResult<T> {
   records: T[]
@@ -77,6 +78,32 @@ export interface EdgeWebSocketSource {
   subscriptionDevices: EdgeWebSocketSubscriptionDevice[]
   createTime?: string
   updateTime?: string
+}
+
+export interface EdgeWebSocketSendRecord {
+  id: number
+  deviceCode: string
+  sourceId: string
+  sourceName?: string
+  endpoint?: string
+  sendType: 'InitialSubscription' | 'SubscriptionUpdate' | string
+  payload: string
+  success: boolean
+  errorMessage?: string
+  durationMs: number
+  createTime?: string
+}
+
+export interface EdgeWebSocketReceiveRecord {
+  id: number
+  messageId: string
+  deviceCode: string
+  sourceId: string
+  sourceDeviceCode?: string
+  dataType: string
+  rawPayload: string
+  messageTime?: string
+  createTime?: string
 }
 
 export type EdgeWebSocketSourceSave = Omit<
@@ -432,6 +459,32 @@ const normalizeWebSocketSource = (data: RawObject): EdgeWebSocketSource => ({
   updateTime: value(data, 'updateTime')
 })
 
+const normalizeWebSocketSendRecord = (data: RawObject): EdgeWebSocketSendRecord => ({
+  id: Number(value(data, 'id', 0)),
+  deviceCode: value(data, 'deviceCode', ''),
+  sourceId: value(data, 'sourceId', ''),
+  sourceName: value(data, 'sourceName'),
+  endpoint: value(data, 'endpoint'),
+  sendType: value(data, 'sendType', 'InitialSubscription'),
+  payload: value(data, 'payload', ''),
+  success: Boolean(value(data, 'success', false)),
+  errorMessage: value(data, 'errorMessage'),
+  durationMs: Number(value(data, 'durationMs', 0)),
+  createTime: value(data, 'createTime')
+})
+
+const normalizeWebSocketReceiveRecord = (data: RawObject): EdgeWebSocketReceiveRecord => ({
+  id: Number(value(data, 'id', 0)),
+  messageId: value(data, 'messageId', ''),
+  deviceCode: value(data, 'deviceCode', ''),
+  sourceId: value(data, 'sourceId', ''),
+  sourceDeviceCode: value(data, 'sourceDeviceCode'),
+  dataType: value(data, 'dataType', 'Telemetry'),
+  rawPayload: value(data, 'rawPayload', '{}'),
+  messageTime: value(data, 'messageTime'),
+  createTime: value(data, 'createTime')
+})
+
 const normalizeWebSocketReconnectResult = (data: RawObject): EdgeWebSocketReconnectResult => ({
   deviceCount: Number(value(data, 'deviceCount', 0)),
   connectionCount: Number(value(data, 'connectionCount', 0))
@@ -645,8 +698,7 @@ export async function saveEdgeGatewayFeatureSetting(
 }
 
 export function getEdgeGatewayConfigurationTemplateUrl(includeData = false) {
-  const baseUrl = String(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
-  return `${baseUrl}/api/EdgeGateway/configuration-template?includeData=${includeData}`
+  return `${getApiUrl('/api/EdgeGateway/configuration-template')}?includeData=${includeData}`
 }
 
 export async function importEdgeGatewayConfiguration(formData: FormData) {
@@ -717,6 +769,29 @@ export function setWebSocketSourceEnabled(id: number, enabled: boolean) {
 
 export function deleteWebSocketSource(id: number) {
   return request.post({ url: `/api/EdgeGateway/websocket-sources/${id}/delete` })
+}
+
+export async function fetchWebSocketSendRecords(params: RawObject) {
+  const data = await request.get<RawObject>({
+    url: '/api/EdgeGateway/websocket-send-records',
+    params
+  })
+  return normalizePage(data, normalizeWebSocketSendRecord)
+}
+
+export async function fetchWebSocketReceiveRecords(params: RawObject) {
+  const data = await request.get<RawObject>({
+    url: '/api/EdgeGateway/websocket-receive-records',
+    params
+  })
+  return normalizePage(data, normalizeWebSocketReceiveRecord)
+}
+
+export async function disableAllWebSocketSources() {
+  const data = await request.post<RawObject>({
+    url: '/api/EdgeGateway/websocket-sources/disable-all'
+  })
+  return normalizeWebSocketReconnectResult(data)
 }
 
 export async function reconnectDeviceWebSocketSources(deviceId: number) {

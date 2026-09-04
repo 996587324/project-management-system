@@ -83,6 +83,18 @@
               </ElButton>
             </div>
           </ElForm>
+
+          <div v-if="oauthStatus.enabled" class="oauth-login">
+            <div class="oauth-login__divider"><span>或</span></div>
+            <ElButton
+              class="w-full custom-height"
+              plain
+              :loading="oauthLoading"
+              @click="startOAuthLogin"
+            >
+              使用{{ oauthStatus.displayName }}登录
+            </ElButton>
+          </div>
         </div>
       </div>
     </div>
@@ -94,8 +106,13 @@
   import { useUserStore } from '@/store/modules/user'
   import { useI18n } from 'vue-i18n'
   import { HttpError } from '@/utils/http/error'
-  import { fetchLogin } from '@/api/auth'
-  import { ElNotification, type FormInstance, type FormRules } from 'element-plus'
+  import {
+    completeOAuth2Login,
+    fetchLogin,
+    fetchOAuth2Status,
+    getOAuth2AuthorizeUrl
+  } from '@/api/auth'
+  import { ElMessage, ElNotification, type FormInstance, type FormRules } from 'element-plus'
   import { useSettingStore } from '@/store/modules/setting'
 
   defineOptions({ name: 'Login' })
@@ -118,6 +135,11 @@
   const route = useRoute()
   const isPassing = ref(false)
   const isClickPass = ref(false)
+  const oauthLoading = ref(false)
+  const oauthStatus = reactive<Api.Auth.OAuth2Status>({
+    enabled: false,
+    displayName: '统一身份认证'
+  })
 
   const systemName = AppConfig.systemInfo.name
   const formRef = ref<FormInstance>()
@@ -135,9 +157,55 @@
 
   const loading = ref(false)
 
-  onMounted(() => {
+  onMounted(async () => {
     restoreRememberedAccount()
+    await initializeOAuthLogin()
   })
+
+  const initializeOAuthLogin = async () => {
+    const oauthError = typeof route.query.oauthError === 'string' ? route.query.oauthError : ''
+    if (oauthError) ElMessage.error(oauthError)
+
+    const ticket = typeof route.query.oauthTicket === 'string' ? route.query.oauthTicket : ''
+    if (ticket) {
+      await handleOAuthCallback(ticket)
+      return
+    }
+
+    try {
+      Object.assign(oauthStatus, await fetchOAuth2Status())
+    } catch {
+      oauthStatus.enabled = false
+    }
+  }
+
+  const completeLogin = async (token: string, refreshToken?: string, redirect?: string) => {
+    if (!token) throw new Error('Login failed - no token received')
+    userStore.setToken(token, refreshToken)
+    userStore.setLoginStatus(true)
+    showLoginSuccessNotice()
+    await router.replace(redirect || '/')
+  }
+
+  const handleOAuthCallback = async (ticket: string) => {
+    oauthLoading.value = true
+    try {
+      const { token, refreshToken } = await completeOAuth2Login({ ticket })
+      const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+      await completeLogin(token, refreshToken, redirect)
+    } catch (error) {
+      if (!(error instanceof HttpError)) {
+        ElMessage.error('统一认证登录失败，请重新尝试')
+      }
+    } finally {
+      oauthLoading.value = false
+    }
+  }
+
+  const startOAuthLogin = () => {
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    window.location.assign(getOAuth2AuthorizeUrl(redirect))
+  }
 
   // 设置账号
   const restoreRememberedAccount = () => {
@@ -192,22 +260,9 @@
         userName: username,
         password
       })
-      // 验证token
-      if (!token) {
-        throw new Error('Login failed - no token received')
-      }
-
-      // 登录接口成功后立即进入系统初始化阶段，用户信息和菜单由路由守卫统一加载一次。
-      userStore.setToken(token, refreshToken)
-      userStore.setLoginStatus(true)
       syncRememberedAccount()
-
-      // 登录成功处理
-      showLoginSuccessNotice()
-
-      // 获取 redirect 参数，如果存在则跳转到指定页面，否则跳转到首页
       const redirect = route.query.redirect as string
-      await router.replace(redirect || '/')
+      await completeLogin(token, refreshToken, redirect)
     } catch (error) {
       // 处理 HttpError
       if (error instanceof HttpError) {

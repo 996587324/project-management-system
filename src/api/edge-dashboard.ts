@@ -1,5 +1,6 @@
 import request from '@/utils/http'
 import type { EdgePageResult } from '@/api/edge-gateway'
+import { getApiUrl } from '@/utils/runtime-config'
 
 export type DashboardRobotState = 'RUNNING' | 'IDLE' | 'FAULT' | 'STOPPED' | 'OFFLINE' | 'UNKNOWN'
 
@@ -92,6 +93,22 @@ export interface DashboardRobotBinding {
   updateTime?: string
 }
 
+/** Three.js 设备组件的数据源绑定；仅展示实时字段，不参与机械手状态统计。 */
+export interface DashboardDeviceBinding {
+  id: number
+  dashboardCode: string
+  lineCode: string
+  deviceCode: string
+  deviceName: string
+  tenantMark: string
+  sourceDeviceMark: string
+  onlineTimeoutSeconds: number
+  enabled: boolean
+  fields: DashboardRobotField[]
+  createTime?: string
+  updateTime?: string
+}
+
 export interface DashboardRuntimeField {
   fieldCode: string
   sourcePath: string
@@ -117,10 +134,24 @@ export interface DashboardRobotRuntime {
   fields: DashboardRuntimeField[]
 }
 
+export interface DashboardDeviceRuntime {
+  bindingId: number
+  lineCode: string
+  deviceCode: string
+  deviceName: string
+  tenantMark: string
+  sourceDeviceMark: string
+  dataOnline: boolean
+  dataTime?: string
+  receiveTime?: string
+  fields: DashboardRuntimeField[]
+}
+
 export interface DashboardLineRuntime {
   lineCode: string
   generatedAt: string
   robots: DashboardRobotRuntime[]
+  devices: DashboardDeviceRuntime[]
 }
 
 export interface DashboardDailyStatistic {
@@ -370,6 +401,21 @@ const normalizeBinding = (data: RawObject): DashboardRobotBinding => ({
   updateTime: value(data, 'updateTime')
 })
 
+const normalizeDeviceBinding = (data: RawObject): DashboardDeviceBinding => ({
+  id: Number(value(data, 'id', 0)),
+  dashboardCode: value(data, 'dashboardCode', 'production-dashboard'),
+  lineCode: value(data, 'lineCode', ''),
+  deviceCode: value(data, 'deviceCode', ''),
+  deviceName: value(data, 'deviceName', ''),
+  tenantMark: value(data, 'tenantMark', ''),
+  sourceDeviceMark: value(data, 'sourceDeviceMark', ''),
+  onlineTimeoutSeconds: Number(value(data, 'onlineTimeoutSeconds', 15)),
+  enabled: Boolean(value(data, 'enabled', true)),
+  fields: value<RawObject[]>(data, 'fields', []).map(normalizeField),
+  createTime: value(data, 'createTime'),
+  updateTime: value(data, 'updateTime')
+})
+
 const normalizeRuntime = (data: RawObject): DashboardRobotRuntime => ({
   bindingId: Number(value(data, 'bindingId', 0)),
   lineCode: value(data, 'lineCode', ''),
@@ -378,6 +424,28 @@ const normalizeRuntime = (data: RawObject): DashboardRobotRuntime => ({
   tenantMark: value(data, 'tenantMark', ''),
   deviceMark: value(data, 'deviceMark', ''),
   status: value(data, 'status', 'UNKNOWN'),
+  dataOnline: Boolean(value(data, 'dataOnline', false)),
+  dataTime: value(data, 'dataTime'),
+  receiveTime: value(data, 'receiveTime'),
+  fields: value<RawObject[]>(data, 'fields', []).map((item) => ({
+    fieldCode: value(item, 'fieldCode', ''),
+    sourcePath: value(item, 'sourcePath', ''),
+    displayName: value(item, 'displayName', ''),
+    purpose: value(item, 'purpose', ''),
+    rawValue: value(item, 'rawValue'),
+    displayValue: value(item, 'displayValue'),
+    unit: value(item, 'unit'),
+    sort: Number(value(item, 'sort', 0))
+  }))
+})
+
+const normalizeDeviceRuntime = (data: RawObject): DashboardDeviceRuntime => ({
+  bindingId: Number(value(data, 'bindingId', 0)),
+  lineCode: value(data, 'lineCode', ''),
+  deviceCode: value(data, 'deviceCode', ''),
+  deviceName: value(data, 'deviceName', ''),
+  tenantMark: value(data, 'tenantMark', ''),
+  sourceDeviceMark: value(data, 'sourceDeviceMark', ''),
   dataOnline: Boolean(value(data, 'dataOnline', false)),
   dataTime: value(data, 'dataTime'),
   receiveTime: value(data, 'receiveTime'),
@@ -619,6 +687,14 @@ export async function fetchDashboardBindings(lineCode: string) {
   return data.map(normalizeBinding)
 }
 
+export async function fetchDashboardDeviceBindings(lineCode: string) {
+  const data = await request.get<RawObject[]>({
+    url: '/api/EdgeGateway/dashboard/device-bindings',
+    params: { lineCode }
+  })
+  return data.map(normalizeDeviceBinding)
+}
+
 export async function saveDashboardBinding(data: DashboardRobotBinding) {
   const result = await request.post<RawObject>({
     url: '/api/EdgeGateway/dashboard/bindings',
@@ -627,8 +703,20 @@ export async function saveDashboardBinding(data: DashboardRobotBinding) {
   return normalizeBinding(result)
 }
 
+export async function saveDashboardDeviceBinding(data: DashboardDeviceBinding) {
+  const result = await request.post<RawObject>({
+    url: '/api/EdgeGateway/dashboard/device-bindings',
+    data
+  })
+  return normalizeDeviceBinding(result)
+}
+
 export function deleteDashboardBinding(id: number) {
   return request.del({ url: `/api/EdgeGateway/dashboard/bindings/${id}` })
+}
+
+export function deleteDashboardDeviceBinding(id: number) {
+  return request.del({ url: `/api/EdgeGateway/dashboard/device-bindings/${id}` })
 }
 
 const dashboardReadUrl = (path: string, publicAccess = false) =>
@@ -643,7 +731,8 @@ export async function fetchDashboardRuntime(lineCode: string, publicAccess = fal
   return {
     lineCode: value(data, 'lineCode', lineCode),
     generatedAt: value(data, 'generatedAt', ''),
-    robots: value<RawObject[]>(data, 'robots', []).map(normalizeRuntime)
+    robots: value<RawObject[]>(data, 'robots', []).map(normalizeRuntime),
+    devices: value<RawObject[]>(data, 'devices', []).map(normalizeDeviceRuntime)
   } as DashboardLineRuntime
 }
 
@@ -824,9 +913,8 @@ export async function fetchDashboardExportRecords(params: RawObject) {
 }
 
 const buildDashboardExportUrl = (path: string, params?: Record<string, string>) => {
-  const baseUrl = String(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
   const query = params ? `?${new URLSearchParams(params).toString()}` : ''
-  return `${baseUrl}/api/EdgeGateway/dashboard/exports/${path}${query}`
+  return `${getApiUrl(`/api/EdgeGateway/dashboard/exports/${path}`)}${query}`
 }
 
 /** 当前选定线体的手动流式导出地址。 */
