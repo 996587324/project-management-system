@@ -6,6 +6,6 @@
  * - wsBaseUrl：Agent WebSocket 的公共前缀；未填写时沿用 apiBaseUrl
  */
 window.__APP_RUNTIME_CONFIG__ = {
-  apiBaseUrl: '/xxtdxm',
-  wsBaseUrl: '/xxtdxm'
+  apiBaseUrl: '',
+  wsBaseUrl: ''
 }

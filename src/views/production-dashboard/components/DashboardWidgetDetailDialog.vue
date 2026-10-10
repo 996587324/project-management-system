@@ -11,7 +11,9 @@
       <div class="detail-toolbar">
         <div>
           <el-tag effect="plain">{{ sourceLabel }}</el-tag>
-          <span>{{ widget.period === 'Day' ? '今日' : widget.period === 'Week' ? '近 7 日' : '近 30 日' }}</span>
+          <span>{{
+            widget.period === 'Day' ? '今日' : widget.period === 'Week' ? '近 7 日' : '近 30 日'
+          }}</span>
         </div>
         <div class="detail-toolbar__actions">
           <el-date-picker
@@ -32,7 +34,14 @@
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="rows" border stripe max-height="560" empty-text="当前条件暂无数据">
+      <el-table
+        v-loading="loading"
+        :data="rows"
+        border
+        stripe
+        max-height="560"
+        empty-text="当前条件暂无数据"
+      >
         <el-table-column
           v-for="field in visibleFields"
           :key="field.fieldKey"
@@ -60,6 +69,7 @@
     fetchDashboardFaultSummary,
     fetchDashboardRuntime
   } from '@/api/edge-dashboard'
+  import { normalizeDashboardPercentages } from './dashboardWidgetPercentage'
 
   const props = withDefaults(
     defineProps<{
@@ -81,6 +91,8 @@
   const visibleFields = computed(() =>
     (props.widget?.fields || []).filter((field) => field.visible).sort((a, b) => a.sort - b.sort)
   )
+  /** 与看板图表一致：同一行所有百分比字段合计为 100%。 */
+  const percentageFields = computed(() => visibleFields.value.filter((field) => field.unit === '%'))
   const sourceLabel = computed(
     () =>
       ({
@@ -95,7 +107,7 @@
     const end = new Date()
     const start = new Date(end)
     const period = props.widget?.period || 'Day'
-    start.setDate(end.getDate() - ({ Day: 0, Week: 6, Month: 29 })[period])
+    start.setDate(end.getDate() - { Day: 0, Week: 6, Month: 29 }[period])
     const format = (date: Date) =>
       `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`
     return [format(start), format(end)] as [string, string]
@@ -117,7 +129,9 @@
           status: robot.status,
           dataOnline: robot.dataOnline,
           receiveTime: robot.receiveTime,
-          ...Object.fromEntries(robot.fields.map((field) => [`field:${field.fieldCode}`, field.displayValue]))
+          ...Object.fromEntries(
+            robot.fields.map((field) => [`field:${field.fieldCode}`, field.displayValue])
+          )
         }))
         return
       }
@@ -153,6 +167,18 @@
 
   const formatValue = (row: Record<string, unknown>, field: DashboardWidgetField) => {
     const value = row[field.fieldKey]
+    if (field.unit === '%') {
+      const decimals = Math.max(0, ...percentageFields.value.map((item) => item.decimals ?? 1))
+      const percentages = normalizeDashboardPercentages(
+        percentageFields.value.map((item) => ({
+          name: item.fieldKey,
+          value: Number(row[item.fieldKey]) || 0
+        })),
+        decimals
+      )
+      const percentage = percentages.find((item) => item.name === field.fieldKey)?.value ?? 0
+      return `${percentage.toFixed(field.decimals ?? 1)}%`
+    }
     if (value == null || value === '') return '-'
     const numeric = Number(value)
     if (!Number.isFinite(numeric)) return String(value)
@@ -202,18 +228,18 @@
   }
 
   .detail-toolbar > div:first-child {
-    color: var(--el-text-color-secondary);
     font-size: 13px;
+    color: var(--el-text-color-secondary);
   }
 
   .detail-footer {
     padding-top: 12px;
-    color: var(--el-text-color-secondary);
     font-size: 13px;
+    color: var(--el-text-color-secondary);
     text-align: right;
   }
 
-  @media (max-width: 760px) {
+  @media (width <= 760px) {
     .detail-toolbar,
     .detail-toolbar__actions {
       flex-wrap: wrap;

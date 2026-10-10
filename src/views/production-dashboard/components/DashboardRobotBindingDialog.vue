@@ -83,17 +83,13 @@
           <el-tab-pane label="展示字段" name="fields">
             <div class="robot-binding-dialog__toolbar">
               <span
-                >可选择 data 内字段，也可选择 deviceMark、modelMark、messageId、time
-                等同级字段。</span
+                >选择需要显示的报文字段；字段名称、格式、单位和值映射请在“模型字段展示映射”中统一维护。</span
               >
               <el-button type="primary" plain :icon="Plus" @click="addField">添加字段</el-button>
             </div>
             <el-table :data="form.fields" max-height="360" border>
               <el-table-column label="字段编码" min-width="130">
                 <template #default="{ row }"><el-input v-model.trim="row.fieldCode" /></template>
-              </el-table-column>
-              <el-table-column label="显示名称" min-width="140">
-                <template #default="{ row }"><el-input v-model.trim="row.displayName" /></template>
               </el-table-column>
               <el-table-column label="来源字段" min-width="300">
                 <template #default="{ row }">
@@ -113,26 +109,9 @@
                   </el-select>
                 </template>
               </el-table-column>
-              <el-table-column label="格式" width="150">
+              <el-table-column label="显示顺序" width="118">
                 <template #default="{ row }">
-                  <el-select v-model="row.formatType">
-                    <el-option label="原值" value="Direct" />
-                    <el-option label="数值映射" value="ValueMap" />
-                    <el-option label="Unix 毫秒时间" value="UnixMilliseconds" />
-                  </el-select>
-                </template>
-              </el-table-column>
-              <el-table-column label="单位" width="90">
-                <template #default="{ row }"><el-input v-model.trim="row.unit" /></template>
-              </el-table-column>
-              <el-table-column label="小数" width="90">
-                <template #default="{ row }">
-                  <el-input-number
-                    v-model="row.decimals"
-                    :min="0"
-                    :max="8"
-                    controls-position="right"
-                  />
+                  <el-input-number v-model="row.sort" :min="0" controls-position="right" />
                 </template>
               </el-table-column>
               <el-table-column label="操作" width="62" fixed="right">
@@ -147,21 +126,6 @@
                 </template>
               </el-table-column>
             </el-table>
-            <el-alert
-              v-if="form.fields.some((item) => item.formatType === 'ValueMap')"
-              class="mt-3"
-              type="info"
-              :closable="false"
-              title='数值映射示例：{"0":"停止","1":"运行","*":"未知"}'
-            />
-            <div
-              v-for="field in form.fields.filter((item) => item.formatType === 'ValueMap')"
-              :key="`map-${field.fieldCode}`"
-              class="robot-binding-dialog__mapping-row"
-            >
-              <span>{{ field.displayName || field.fieldCode || '未命名字段' }}</span>
-              <el-input v-model="field.mappingJson" placeholder='{"0":"停止","1":"运行"}' />
-            </div>
           </el-tab-pane>
 
           <el-tab-pane label="模型报警映射" name="alarms">
@@ -296,7 +260,9 @@
 
           <el-tab-pane label="状态累计规则" name="rules">
             <div class="robot-binding-dialog__toolbar">
-              <span>故障优先于运行和空闲；未命中任何规则时记入“未知”时间。</span>
+              <span
+                >不同状态的冲突顺序由“模型状态优先级”统一决定；本页优先级仅用于相同状态下的规则排序。</span
+              >
               <el-dropdown @command="addRule">
                 <el-button type="primary" plain :icon="Plus">添加状态规则</el-button>
                 <template #dropdown>
@@ -884,14 +850,6 @@
     min-height: 42px;
     margin-bottom: 10px;
     color: var(--el-text-color-secondary);
-  }
-
-  .robot-binding-dialog__mapping-row {
-    display: grid;
-    grid-template-columns: 180px 1fr;
-    gap: 12px;
-    align-items: center;
-    margin-top: 10px;
   }
 
   .state-rule-row {

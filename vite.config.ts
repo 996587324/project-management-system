@@ -14,7 +14,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default ({ mode }: { mode: string }) => {
   const root = process.cwd()
   const env = loadEnv(mode, root)
-  const { VITE_VERSION, VITE_PORT, VITE_BASE_URL, VITE_API_PROXY_URL } = env
+  const { VITE_VERSION, VITE_PORT, VITE_BASE_URL, VITE_API_PROXY_URL, VITE_WS_PROXY_URL } = env
 
   return defineConfig({
     define: {
@@ -27,10 +27,9 @@ export default ({ mode }: { mode: string }) => {
         '/api': {
           target: VITE_API_PROXY_URL,
           changeOrigin: true
-          // rewrite:(path)=>path.replace(/^\/api/,'')
         },
         '/ws': {
-          target: VITE_API_PROXY_URL,
+          target: VITE_WS_PROXY_URL || VITE_API_PROXY_URL,
           changeOrigin: true,
           ws: true
         }

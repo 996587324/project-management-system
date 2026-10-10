@@ -4,27 +4,32 @@
       <span class="production-dashboard__brand-mark">II</span>
       <div>
         <p>SMART FACTORY · NANSHA TCL</p>
-        <h1>自动化产线机械手监控平台</h1>
+        <h1>产线机械手 AI 监控平台</h1>
       </div>
     </div>
 
     <nav class="production-dashboard__line-tabs" aria-label="线体切换">
-      <button
-        v-for="line in lines"
-        :key="line.id"
-        :class="[
-          'production-dashboard__line-tab',
-          { 'production-dashboard__line-tab--active': activeLineId === line.id }
-        ]"
-        :style="
-          activeLineId === line.id ? { borderColor: line.color, color: line.color } : undefined
-        "
-        type="button"
-        @click="emit('update:activeLineId', line.id)"
+      <el-select
+        v-model="selectedLineId"
+        class="production-dashboard__line-select"
+        filterable
+        placeholder="搜索线体名称、编码或区域"
       >
-        <i :style="{ backgroundColor: line.color }" />{{ line.id }}
-        <span>{{ line.robots.length }} 台</span>
-      </button>
+        <el-option
+          v-for="line in lines"
+          :key="line.id"
+          :label="`${line.name} ${line.id} ${line.area}`"
+          :value="line.id"
+        >
+          <div class="production-dashboard__line-option">
+            <i :style="{ backgroundColor: line.color }" />
+            <strong>{{ line.name }}</strong>
+            <span>{{ line.id }}</span>
+            <small v-if="line.area">{{ line.area }}</small>
+            <em>{{ line.robots.length }} 台设备</em>
+          </div>
+        </el-option>
+      </el-select>
     </nav>
 
     <div class="production-dashboard__header-actions">
@@ -63,9 +68,9 @@
       <router-link
         v-if="!readOnly"
         class="production-dashboard__layout-link"
-        :to="{ name: 'ProductionDashboardLayoutEditor', query: { lineCode: activeLineId } }"
+        :to="{ name: 'ProductionDashboardConfig' }"
       >
-        布局编辑
+        看板配置
       </router-link>
       <router-link
         v-if="!readOnly"
@@ -74,39 +79,16 @@
       >
         看板 Agent
       </router-link>
-      <button
-        v-if="!readOnly"
-        class="production-dashboard__config-button"
-        type="button"
-        @click="emit('openBinding')"
-      >
-        数据绑定
-      </button>
-      <button
-        v-if="!readOnly"
-        class="production-dashboard__config-button"
-        type="button"
-        @click="emit('openWidgets')"
-      >
-        图表配置
-      </button>
-      <button
-        v-if="!readOnly"
-        class="production-dashboard__config-button"
-        type="button"
-        @click="emit('openLines')"
-      >
-        线体配置
-      </button>
       <time>{{ currentTime }}</time>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
+  import { computed } from 'vue'
   import type { ProductionLineBoard } from '@/views/production-dashboard/config/productionDashboard'
 
-  withDefaults(
+  const props = withDefaults(
     defineProps<{
       lines: ProductionLineBoard[]
       activeLineId: string
@@ -123,11 +105,17 @@
     'update:activeLineId': [lineId: string]
     toggleFullscreen: []
     openBinding: []
+    openOutput: []
     openWidgets: []
     openLines: []
     exportCurrent: []
     openExports: []
   }>()
+
+  const selectedLineId = computed({
+    get: () => props.activeLineId,
+    set: (lineId: string) => emit('update:activeLineId', lineId)
+  })
 </script>
 
 <style scoped lang="scss">
@@ -174,41 +162,70 @@
 
   .production-dashboard__line-tabs {
     display: flex;
-    gap: 6px;
     align-items: center;
     height: 100%;
   }
 
-  .production-dashboard__line-tab {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    height: 30px;
-    padding: 0 11px;
-    font-size: 12px;
-    color: #91b8ce;
-    cursor: pointer;
-    background: rgb(11 37 55 / 50%);
-    border: 1px solid rgb(110 177 211 / 25%);
-    border-radius: 3px;
+  .production-dashboard__line-select {
+    width: 270px;
   }
 
-  .production-dashboard__line-tab i {
-    display: inline-block;
-    width: 6px;
-    height: 6px;
+  .production-dashboard__line-select :deep(.el-select__wrapper) {
+    min-height: 30px;
+    background: rgb(11 37 55 / 66%);
+    box-shadow: 0 0 0 1px rgb(110 177 211 / 38%) inset;
+  }
+
+  .production-dashboard__line-select :deep(.el-select__selected-item),
+  .production-dashboard__line-select :deep(.el-select__placeholder) {
+    font-size: 12px;
+    color: #b9e5f7;
+  }
+
+  .production-dashboard__line-select :deep(.el-select__caret) {
+    color: #76d5f6;
+  }
+
+  .production-dashboard__line-option {
+    display: grid;
+    grid-template-columns: 8px minmax(110px, 1fr) auto;
+    gap: 3px 10px;
+    align-items: center;
+    min-width: 250px;
+    line-height: 1.25;
+  }
+
+  .production-dashboard__line-option i {
+    grid-row: 1 / span 2;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     box-shadow: 0 0 8px currentcolor;
   }
 
-  .production-dashboard__line-tab span {
-    font-size: 10px;
-    color: #68879a;
+  .production-dashboard__line-option strong {
+    overflow: hidden;
+    font-size: 13px;
+    color: #283e50;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .production-dashboard__line-tab--active {
-    background: rgb(49 145 190 / 16%);
-    box-shadow: inset 0 0 15px rgb(78 203 250 / 8%);
+  .production-dashboard__line-option span,
+  .production-dashboard__line-option small,
+  .production-dashboard__line-option em {
+    font-size: 11px;
+    font-style: normal;
+    color: #778b9b;
+  }
+
+  .production-dashboard__line-option small {
+    grid-column: 2;
+  }
+
+  .production-dashboard__line-option em {
+    grid-row: 2;
+    grid-column: 3;
   }
 
   .production-dashboard__header-actions {
@@ -293,8 +310,8 @@
       font-size: 18px;
     }
 
-    .production-dashboard__line-tab {
-      padding: 0 8px;
+    .production-dashboard__line-select {
+      width: 230px;
     }
   }
 
@@ -322,20 +339,17 @@
       gap: 9px;
     }
 
-    .production-dashboard__line-tab {
-      gap: 7px;
-      height: 36px;
-      padding: 0 14px;
-      font-size: 16px;
+    .production-dashboard__line-select {
+      width: 320px;
     }
 
-    .production-dashboard__line-tab i {
-      width: 8px;
-      height: 8px;
+    .production-dashboard__line-select :deep(.el-select__wrapper) {
+      min-height: 36px;
     }
 
-    .production-dashboard__line-tab span {
-      font-size: 14px;
+    .production-dashboard__line-select :deep(.el-select__selected-item),
+    .production-dashboard__line-select :deep(.el-select__placeholder) {
+      font-size: 15px;
     }
 
     .production-dashboard__header-actions time {
@@ -388,11 +402,10 @@
 
     .production-dashboard__line-tabs {
       width: 100%;
-      overflow-x: auto;
     }
 
-    .production-dashboard__line-tab {
-      flex: 0 0 auto;
+    .production-dashboard__line-select {
+      width: 100%;
     }
 
     .production-dashboard__header-actions {

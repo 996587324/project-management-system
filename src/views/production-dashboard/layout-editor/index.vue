@@ -148,6 +148,15 @@
             >旋转（弧度）<input v-model.number="selectedDevice.rotation" type="number" step="0.1"
           /></label>
           <label>颜色<input v-model="selectedDevice.color" type="color" /></label>
+          <div class="layout-editor__binding-title">数据绑定</div>
+          <p class="layout-editor__binding-tip">选择实时设备及需要在看板详情展示的字段。</p>
+          <button
+            class="layout-editor__binding-button"
+            type="button"
+            @click="deviceBindingDialogOpen = true"
+          >
+            配置设备数据源
+          </button>
         </template>
 
         <template v-else-if="selectedCell">
@@ -171,7 +180,7 @@
             /></label>
           </div>
           <label
-              >深度<input v-model.number="selectedCell.depth" type="number" min="0.5" step="0.1"
+            >深度<input v-model.number="selectedCell.depth" type="number" min="0.5" step="0.1"
           /></label>
           <label
             >旋转（弧度）<input v-model.number="selectedCell.rotation" type="number" step="0.1"
@@ -252,6 +261,14 @@
       @saved="handleBindingSaved"
       @deleted="handleBindingDeleted"
     />
+    <dashboard-device-binding-dialog
+      v-if="selectedDevice"
+      v-model="deviceBindingDialogOpen"
+      :line-code="layout.lineId"
+      :device-code="selectedDevice.id"
+      :device-name="selectedDevice.name"
+      @saved="handleDeviceBindingSaved"
+    />
   </main>
 </template>
 
@@ -260,6 +277,7 @@
   import { useRoute } from 'vue-router'
   import RobotLineScene from '@/views/production-dashboard/components/RobotLineScene.vue'
   import DashboardRobotBindingDialog from '@/views/production-dashboard/components/DashboardRobotBindingDialog.vue'
+  import DashboardDeviceBindingDialog from '@/views/production-dashboard/components/DashboardDeviceBindingDialog.vue'
   import type { DashboardRobotBinding } from '@/api/edge-dashboard'
   import {
     ConveyorLayoutItem,
@@ -285,7 +303,7 @@
 
   export default defineComponent({
     name: 'LineLayoutEditor',
-    components: { DashboardRobotBindingDialog, RobotLineScene },
+    components: { DashboardDeviceBindingDialog, DashboardRobotBindingDialog, RobotLineScene },
     setup() {
       const route = useRoute()
       const configuredLines = loadConfiguredProductionLines()
@@ -314,6 +332,7 @@
       const selected = ref<LayoutSelection | null>(null)
       const saveMessage = ref('')
       const bindingDialogOpen = ref(false)
+      const deviceBindingDialogOpen = ref(false)
 
       const selectedRobot = computed(() => {
         if (selected.value?.type !== 'robot') return undefined
@@ -376,9 +395,7 @@
         selected.value = item
       }
 
-      const add = (
-        type: 'robot' | 'device' | 'workCell' | 'conveyor' | 'merge' | 'split'
-      ) => {
+      const add = (type: 'robot' | 'device' | 'workCell' | 'conveyor' | 'merge' | 'split') => {
         const result =
           type === 'robot'
             ? addRobot()
@@ -432,6 +449,9 @@
         if (selectedRobot.value) selectedRobot.value.bindings.deviceId = ''
         saveMessage.value = '机械手数据绑定已删除，历史统计仍会保留。'
       }
+      const handleDeviceBindingSaved = () => {
+        saveMessage.value = '设备数据源与展示字段已保存。'
+      }
 
       onMounted(async () => {
         try {
@@ -457,6 +477,7 @@
         deviceTypeOptions,
         saveMessage,
         bindingDialogOpen,
+        deviceBindingDialogOpen,
         selectItem,
         moveItem,
         add,
@@ -465,7 +486,8 @@
         save,
         restoreDefault,
         handleBindingSaved,
-        handleBindingDeleted
+        handleBindingDeleted,
+        handleDeviceBindingSaved
       }
     }
   })

@@ -106,6 +106,116 @@ export interface EdgeWebSocketReceiveRecord {
   createTime?: string
 }
 
+export interface EdgeDataTraceSetting {
+  retentionHours: number
+  enabled: boolean
+  updateBy?: string
+  updateTime?: string
+}
+
+export interface EdgeDataTraceField {
+  id: number
+  fieldCode: string
+  displayName: string
+  valueType: 'Number' | 'Boolean' | 'Enum' | 'Text' | string
+  unit?: string
+  decimalPlaces: number
+  stateMappingJson?: string
+  enabled: boolean
+  sort: number
+}
+
+export interface EdgeDataTraceRule {
+  id: number
+  ruleName: string
+  sourceType: string
+  edgeDeviceId: number
+  edgeDeviceCode: string
+  edgeDeviceName?: string
+  sourceId: string
+  sourceDeviceCode: string
+  sourceDeviceName?: string
+  enabled: boolean
+  remark?: string
+  fields: EdgeDataTraceField[]
+}
+
+export interface EdgeDataTraceTreeNode {
+  key: string
+  label: string
+  nodeType: 'EdgeDevice' | 'Source' | 'SourceDevice' | 'Field' | string
+  traceFieldId?: number
+  edgeDeviceCode?: string
+  sourceId?: string
+  sourceDeviceCode?: string
+  fieldCode?: string
+  unit?: string
+  valueType?: string
+  latestValue?: string
+  lastReceiveTime?: string
+  children: EdgeDataTraceTreeNode[]
+}
+
+export interface EdgeDataTraceTrendPoint {
+  time: string
+  numericValue?: number
+  textValue?: string
+}
+
+export interface EdgeDataTraceTrendSeries {
+  traceFieldId: number
+  name: string
+  unit?: string
+  valueType: string
+  points: EdgeDataTraceTrendPoint[]
+}
+
+export interface EdgeDataTracePoint {
+  id: number
+  traceFieldId: number
+  edgeDeviceCode: string
+  sourceId: string
+  sourceDeviceCode: string
+  fieldCode: string
+  displayName: string
+  unit?: string
+  valueType: string
+  numericValue?: number
+  textValue?: string
+  messageId: string
+  messageTime: string
+  createTime: string
+}
+
+export interface EdgeDataTraceDetailPage {
+  records: EdgeDataTracePoint[]
+  hasMore: boolean
+  nextCursorTime?: string
+  nextCursorId?: number
+}
+
+export interface EdgeDataTraceSummary {
+  traceFieldId: number
+  latestValue?: number
+  minValue?: number
+  maxValue?: number
+  averageValue?: number
+  pointCount: number
+  lastReceiveTime?: string
+}
+
+export interface EdgeDataTraceExportTask {
+  id: number
+  status: 'Pending' | 'Processing' | 'Completed' | 'Failed' | string
+  processedCount: number
+  totalCount?: number
+  fileName?: string
+  errorMessage?: string
+  createTime: string
+  completeTime?: string
+  expireTime?: string
+}
+
 export type EdgeWebSocketSourceSave = Omit<
   EdgeWebSocketSource,
   | 'deviceId'
@@ -485,6 +595,105 @@ const normalizeWebSocketReceiveRecord = (data: RawObject): EdgeWebSocketReceiveR
   createTime: value(data, 'createTime')
 })
 
+/** 将数据追溯接口的后端 DTO 统一为前端使用的 camelCase 字段。 */
+const normalizeDataTraceSetting = (data: RawObject): EdgeDataTraceSetting => ({
+  retentionHours: Number(value(data, 'retentionHours', 5)),
+  enabled: Boolean(value(data, 'enabled', true)),
+  updateBy: value(data, 'updateBy'),
+  updateTime: value(data, 'updateTime')
+})
+
+const normalizeDataTraceField = (data: RawObject): EdgeDataTraceField => ({
+  id: Number(value(data, 'id', 0)),
+  fieldCode: value(data, 'fieldCode', ''),
+  displayName: value(data, 'displayName', ''),
+  valueType: value(data, 'valueType', 'Number'),
+  unit: value(data, 'unit'),
+  decimalPlaces: Number(value(data, 'decimalPlaces', 2)),
+  stateMappingJson: value(data, 'stateMappingJson'),
+  enabled: Boolean(value(data, 'enabled', true)),
+  sort: Number(value(data, 'sort', 0))
+})
+
+const normalizeDataTraceRule = (data: RawObject): EdgeDataTraceRule => ({
+  id: Number(value(data, 'id', 0)),
+  ruleName: value(data, 'ruleName', ''),
+  sourceType: value(data, 'sourceType', 'WebSocket'),
+  edgeDeviceId: Number(value(data, 'edgeDeviceId', 0)),
+  edgeDeviceCode: value(data, 'edgeDeviceCode', ''),
+  edgeDeviceName: value(data, 'edgeDeviceName'),
+  sourceId: value(data, 'sourceId', ''),
+  sourceDeviceCode: value(data, 'sourceDeviceCode', ''),
+  sourceDeviceName: value(data, 'sourceDeviceName'),
+  enabled: Boolean(value(data, 'enabled', true)),
+  remark: value(data, 'remark'),
+  fields: value<RawObject[]>(data, 'fields', []).map(normalizeDataTraceField)
+})
+
+const normalizeDataTraceTreeNode = (data: RawObject): EdgeDataTraceTreeNode => ({
+  key: value(data, 'key', ''),
+  label: value(data, 'label', ''),
+  nodeType: value(data, 'nodeType', ''),
+  traceFieldId: value<number | undefined>(data, 'traceFieldId'),
+  edgeDeviceCode: value(data, 'edgeDeviceCode'),
+  sourceId: value(data, 'sourceId'),
+  sourceDeviceCode: value(data, 'sourceDeviceCode'),
+  fieldCode: value(data, 'fieldCode'),
+  unit: value(data, 'unit'),
+  valueType: value(data, 'valueType'),
+  latestValue: value(data, 'latestValue'),
+  lastReceiveTime: value(data, 'lastReceiveTime'),
+  children: value<RawObject[]>(data, 'children', []).map(normalizeDataTraceTreeNode)
+})
+
+const normalizeDataTraceTrendPoint = (data: RawObject): EdgeDataTraceTrendPoint => ({
+  time: value(data, 'time', ''),
+  numericValue: value(data, 'numericValue'),
+  textValue: value(data, 'textValue')
+})
+
+const normalizeDataTraceTrendSeries = (data: RawObject): EdgeDataTraceTrendSeries => ({
+  traceFieldId: Number(value(data, 'traceFieldId', 0)),
+  name: value(data, 'name', ''),
+  unit: value(data, 'unit'),
+  valueType: value(data, 'valueType', 'Number'),
+  points: value<RawObject[]>(data, 'points', []).map(normalizeDataTraceTrendPoint)
+})
+
+const normalizeDataTracePoint = (data: RawObject): EdgeDataTracePoint => ({
+  id: Number(value(data, 'id', 0)),
+  traceFieldId: Number(value(data, 'traceFieldId', 0)),
+  edgeDeviceCode: value(data, 'edgeDeviceCode', ''),
+  sourceId: value(data, 'sourceId', ''),
+  sourceDeviceCode: value(data, 'sourceDeviceCode', ''),
+  fieldCode: value(data, 'fieldCode', ''),
+  displayName: value(data, 'displayName', ''),
+  unit: value(data, 'unit'),
+  valueType: value(data, 'valueType', ''),
+  numericValue: value(data, 'numericValue'),
+  textValue: value(data, 'textValue'),
+  messageId: value(data, 'messageId', ''),
+  messageTime: value(data, 'messageTime', ''),
+  createTime: value(data, 'createTime', '')
+})
+
+const normalizeDataTraceDetailPage = (data: RawObject): EdgeDataTraceDetailPage => ({
+  records: value<RawObject[]>(data, 'records', []).map(normalizeDataTracePoint),
+  hasMore: Boolean(value(data, 'hasMore', false)),
+  nextCursorTime: value(data, 'nextCursorTime'),
+  nextCursorId: value(data, 'nextCursorId')
+})
+
+const normalizeDataTraceSummary = (data: RawObject): EdgeDataTraceSummary => ({
+  traceFieldId: Number(value(data, 'traceFieldId', 0)),
+  latestValue: value(data, 'latestValue'),
+  minValue: value(data, 'minValue'),
+  maxValue: value(data, 'maxValue'),
+  averageValue: value(data, 'averageValue'),
+  pointCount: Number(value(data, 'pointCount', 0)),
+  lastReceiveTime: value(data, 'lastReceiveTime')
+})
+
 const normalizeWebSocketReconnectResult = (data: RawObject): EdgeWebSocketReconnectResult => ({
   deviceCount: Number(value(data, 'deviceCount', 0)),
   connectionCount: Number(value(data, 'connectionCount', 0))
@@ -786,6 +995,86 @@ export async function fetchWebSocketReceiveRecords(params: RawObject) {
   })
   return normalizePage(data, normalizeWebSocketReceiveRecord)
 }
+
+export async function fetchDataTraceSetting() {
+  const data = await request.get<RawObject>({ url: '/api/EdgeGateway/data-trace/setting' })
+  return normalizeDataTraceSetting(data)
+}
+
+export async function saveDataTraceSetting(
+  params: Pick<EdgeDataTraceSetting, 'retentionHours' | 'enabled'>
+) {
+  const data = await request.post<RawObject>({ url: '/api/EdgeGateway/data-trace/setting', params })
+  return normalizeDataTraceSetting(data)
+}
+
+export async function fetchDataTraceRules() {
+  const data = await request.get<RawObject[]>({ url: '/api/EdgeGateway/data-trace/rules' })
+  return data.map(normalizeDataTraceRule)
+}
+
+export async function saveDataTraceRule(
+  params: Omit<EdgeDataTraceRule, 'edgeDeviceCode' | 'edgeDeviceName'>
+) {
+  const data = await request.post<RawObject>({ url: '/api/EdgeGateway/data-trace/rules', params })
+  return normalizeDataTraceRule(data)
+}
+
+export function deleteDataTraceRule(id: number) {
+  return request.post({ url: `/api/EdgeGateway/data-trace/rules/${id}/delete` })
+}
+
+export async function fetchDataTraceTree() {
+  const data = await request.get<RawObject[]>({ url: '/api/EdgeGateway/data-trace/tree' })
+  return data.map(normalizeDataTraceTreeNode)
+}
+
+export async function fetchDataTraceTrend(params: {
+  traceFieldIds: number[]
+  startTime: string
+  endTime: string
+  maxPointsPerSeries?: number
+}) {
+  const data = await request.post<RawObject[]>({
+    url: '/api/EdgeGateway/data-trace/trend',
+    params
+  })
+  return data.map(normalizeDataTraceTrendSeries)
+}
+
+export async function fetchDataTraceDetail(params: RawObject) {
+  const data = await request.post<RawObject>({
+    url: '/api/EdgeGateway/data-trace/detail',
+    params
+  })
+  return normalizeDataTraceDetailPage(data)
+}
+
+export async function fetchDataTraceSummaries(params: RawObject) {
+  const data = await request.post<RawObject[]>({
+    url: '/api/EdgeGateway/data-trace/summaries',
+    params
+  })
+  return data.map(normalizeDataTraceSummary)
+}
+
+export function createDataTraceExport(params: {
+  traceFieldIds: number[]
+  startTime: string
+  endTime: string
+}) {
+  return request.post<EdgeDataTraceExportTask>({
+    url: '/api/EdgeGateway/data-trace/exports',
+    params
+  })
+}
+
+export function fetchDataTraceExportTask(id: number) {
+  return request.get<EdgeDataTraceExportTask>({ url: `/api/EdgeGateway/data-trace/exports/${id}` })
+}
+
+export const getDataTraceExportFileUrl = (id: number) =>
+  getApiUrl(`/api/EdgeGateway/data-trace/exports/${id}/file`)
 
 export async function disableAllWebSocketSources() {
   const data = await request.post<RawObject>({

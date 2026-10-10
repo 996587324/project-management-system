@@ -2,7 +2,7 @@
   <section :class="['robot-line-scene', { 'robot-line-scene--editable': editable }]">
     <div ref="canvasRef" class="robot-line-scene__canvas" />
 
-    <div class="robot-line-scene__legend" aria-label="机械手状态图例">
+    <div class="robot-line-scene__legend" aria-label="设备与机械手状态图例">
       <span v-for="item in statusLegend" :key="item.status" class="robot-line-scene__legend-item">
         <i :style="{ backgroundColor: item.color }" />{{ item.label }}
       </span>
@@ -36,9 +36,9 @@
         <span class="robot-line-scene__detail-name">{{ selectedDevice.name }}</span>
         <span
           class="robot-line-scene__detail-status"
-          :style="{ color: selectedDeviceRuntime?.dataOnline ? '#20e5a3' : '#94a3b8' }"
+          :style="{ color: getDeviceStatusMeta(selectedDeviceRuntime).color }"
         >
-          {{ selectedDeviceRuntime?.dataOnline ? '数据在线' : '未绑定或离线' }}
+          {{ getDeviceStatusMeta(selectedDeviceRuntime).label }}
         </span>
       </div>
       <p
@@ -52,6 +52,9 @@
         </div>
       </div>
       <p v-else class="robot-line-scene__detail-empty">暂无设备展示字段</p>
+      <p v-if="selectedDeviceRuntime?.currentAlarm" class="robot-line-scene__detail-alarm">
+        {{ selectedDeviceRuntime.currentAlarm }}
+      </p>
     </div>
 
     <span class="robot-line-scene__tip">
@@ -109,6 +112,16 @@
     name: string
   }
 
+  interface DeviceNode {
+    group: THREE.Group
+    marker: THREE.Mesh<THREE.TorusGeometry, THREE.MeshStandardMaterial>
+    statusPad: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>
+    label: THREE.Sprite
+    status: RobotStatus
+    name: string
+    labelY: number
+  }
+
   interface SceneItemMetadata extends LayoutSelection {
     center: [number, number]
   }
@@ -157,6 +170,7 @@
       const scene = new THREE.Scene()
       const layoutLayer = new THREE.Group()
       const robotNodes = new Map<string, RobotNode>()
+      const deviceNodes = new Map<string, DeviceNode>()
       const clickTargets: THREE.Object3D[] = []
       const raycaster = new THREE.Raycaster()
       const pointer = new THREE.Vector2()
@@ -202,6 +216,13 @@
       )
 
       const getStatusMeta = (status: RobotStatus) => ROBOT_STATUS_META[status]
+      const getDeviceStatus = (runtime?: DashboardDeviceRuntime): RobotStatus => {
+        const status = runtime?.status as RobotStatus | undefined
+        if (status && status in ROBOT_STATUS_META) return status
+        return runtime?.dataOnline ? 'RUNNING' : 'OFFLINE'
+      }
+      const getDeviceStatusMeta = (runtime?: DashboardDeviceRuntime) =>
+        getStatusMeta(getDeviceStatus(runtime))
       const getDeviceTypeLabel = (type: DeviceLayoutType) =>
         ({ generic: '通用设备', machine: '加工设备', inspection: '检测设备' })[type]
       const formatDisplayField = (field: DashboardRuntimeField) => {
@@ -581,6 +602,10 @@
           metalness: 0.25,
           roughness: 0.28
         })
+        const status = getDeviceStatus(
+          props.runtimeDevices.find((item) => item.deviceCode === device.id)
+        )
+        const statusMeta = getStatusMeta(status)
 
         const base = new THREE.Mesh(
           new THREE.BoxGeometry(width * 1.06, 0.12, depth * 1.06),
@@ -635,11 +660,76 @@
           group.add(indicator)
         }
 
-        const label = createLabel(device.name, '#63e8ff')
-        label.position.y = height + 0.62
+        const markerMaterial = new THREE.MeshStandardMaterial({
+          color: statusMeta.color,
+          emissive: statusMeta.color,
+          emissiveIntensity: 1.65,
+          metalness: 0.28,
+          roughness: 0.3
+        })
+        const statusPadMaterial = new THREE.MeshStandardMaterial({
+          color: statusMeta.color,
+          emissive: statusMeta.color,
+          emissiveIntensity: 0.8,
+          metalness: 0.22,
+          roughness: 0.36
+        })
+        const statusPad = new THREE.Mesh(
+          new THREE.BoxGeometry(width * 1.2, 0.07, depth * 1.2),
+          statusPadMaterial
+        )
+        statusPad.position.y = 0.145
+        group.add(statusPad)
+        const marker = new THREE.Mesh(
+          new THREE.TorusGeometry(Math.max(Math.max(width, depth) * 0.6, 0.58), 0.085, 10, 36),
+          markerMaterial
+        )
+        marker.rotation.x = -Math.PI / 2
+        marker.position.y = 0.23
+        group.add(marker)
+
+        const labelY = height + 0.62
+        const label = createLabel(`${device.name}  ${statusMeta.label}`, statusMeta.color)
+        label.position.y = labelY
         group.add(label)
         layoutLayer.add(group)
         registerSelectable(group, 'device', device.id, device.position)
+        deviceNodes.set(device.id, {
+          group,
+          marker,
+          statusPad,
+          label,
+          status,
+          name: device.name,
+          labelY
+        })
+      }
+
+      const syncDevices = () => {
+        props.layout.devices.forEach((device) => {
+          const node = deviceNodes.get(device.id)
+          if (!node) return
+          const status = getDeviceStatus(
+            props.runtimeDevices.find((item) => item.deviceCode === device.id)
+          )
+          const meta = getStatusMeta(status)
+          node.marker.material.color.set(meta.color)
+          node.marker.material.emissive.set(meta.color)
+          node.statusPad.material.color.set(meta.color)
+          node.statusPad.material.emissive.set(meta.color)
+          if (node.status !== status || node.name !== device.name) {
+            const labelMaterial = node.label.material as THREE.SpriteMaterial
+            labelMaterial.map?.dispose()
+            labelMaterial.dispose()
+            node.group.remove(node.label)
+            node.label = createLabel(`${device.name}  ${meta.label}`, meta.color)
+            applyRobotLabelScale(node.label)
+            node.label.position.y = node.labelY
+            node.group.add(node.label)
+            node.status = status
+            node.name = device.name
+          }
+        })
       }
 
       const createWorkCell = (cell: WorkCellLayoutItem) => {
@@ -673,6 +763,7 @@
           const item = clickTargets[index].userData.layoutItem as SceneItemMetadata | undefined
           if (item && item.type !== 'robot') clickTargets.splice(index, 1)
         }
+        deviceNodes.clear()
       }
 
       const renderLayout = () => {
@@ -681,6 +772,7 @@
         ;(props.layout.devices || []).forEach(createDevice)
         props.layout.workCells.forEach(createWorkCell)
         props.layout.junctions.forEach(createJunction)
+        syncDevices()
         syncSelectionHighlight()
       }
 
@@ -705,6 +797,7 @@
         scene.add(ambient, keyLight, alarmLight)
         renderLayout()
         syncRobots()
+        syncDevices()
       }
 
       const resize = () => {
@@ -719,6 +812,7 @@
         composer?.setPixelRatio(pixelRatio)
         composer?.setSize(clientWidth, clientHeight)
         robotNodes.forEach((node) => applyRobotLabelScale(node.label))
+        deviceNodes.forEach((node) => applyRobotLabelScale(node.label))
       }
 
       const getSceneItem = (object: THREE.Object3D) => {
@@ -799,6 +893,25 @@
               : 1.1
           if (robot.status === 'RUNNING') node.arm.rotation.y = Math.sin(elapsed * 1.8) * 0.16
         })
+        props.layout.devices.forEach((device) => {
+          const node = deviceNodes.get(device.id)
+          if (!node) return
+          const isAlert = node.status === 'ALARM' || node.status === 'WARNING'
+          const isSelected =
+            selectedSceneItem.value?.type === 'device' && device.id === selectedSceneItem.value.id
+          const pulse = isAlert ? 1 + Math.sin(elapsed * 5) * 0.12 : 1
+          node.marker.scale.setScalar(pulse * (isSelected ? 1.18 : 1))
+          node.marker.material.emissiveIntensity = isSelected
+            ? 2.5
+            : isAlert
+              ? 1.85 + Math.sin(elapsed * 5) * 0.95
+              : 1.55
+          node.statusPad.material.emissiveIntensity = isSelected
+            ? 1.45
+            : isAlert
+              ? 1.05 + Math.sin(elapsed * 5) * 0.45
+              : 0.8
+        })
         if (camera && controls && focusTarget) {
           const nextTarget = controls.target.clone().lerp(focusTarget, 0.075)
           camera.position.add(nextTarget.clone().sub(controls.target))
@@ -831,6 +944,7 @@
         renderer?.dispose()
         renderer?.domElement.remove()
         robotNodes.clear()
+        deviceNodes.clear()
         clickTargets.splice(0)
       }
 
@@ -891,6 +1005,11 @@
         { deep: true }
       )
       watch(
+        () => props.runtimeDevices,
+        () => syncDevices(),
+        { deep: true }
+      )
+      watch(
         () => props.layout.lineId,
         async () => {
           await nextTick()
@@ -902,6 +1021,7 @@
         (editable) => {
           if (!editable) transformControls?.detach()
           robotNodes.forEach((node) => applyRobotLabelScale(node.label))
+          deviceNodes.forEach((node) => applyRobotLabelScale(node.label))
           syncSelectionHighlight()
         }
       )
@@ -919,6 +1039,7 @@
         formatDisplayField,
         getDeviceTypeLabel,
         getStatusMeta,
+        getDeviceStatusMeta,
         statusLegend: statusLegend.map((status) => ({ status, ...getStatusMeta(status) }))
       }
     }

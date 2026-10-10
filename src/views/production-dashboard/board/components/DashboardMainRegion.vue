@@ -3,47 +3,61 @@
     <aside class="production-dashboard__column production-dashboard__column--left">
       <section class="dashboard-panel">
         <header class="dashboard-panel__title">
-          <span>设备运行状态</span><small>HTTP 实时数据 · 5 秒刷新</small>
+          <span>当前线体产出</span
+          ><small>{{ lineOutput?.configured ? '设备字段实时累计' : '等待绑定产量字段' }}</small>
         </header>
-        <div class="status-overview">
-          <div v-for="item in statusItems" :key="item.status" class="status-overview__item">
-            <div>
-              <i :style="{ backgroundColor: item.color }" />
-              <span>{{ item.label }}</span
-              ><b>{{ item.count }}</b>
-            </div>
-            <div class="status-overview__rail">
-              <i
-                :style="{
-                  width: `${robots.length ? (item.count / robots.length) * 100 : 0}%`,
-                  backgroundColor: item.color
-                }"
-              />
-            </div>
+        <div v-if="lineOutput?.configured" class="line-output-summary">
+          <div class="line-output-summary__value">
+            <b>{{ formatOutput(lineOutput.todayQuantity) }}</b
+            ><span>{{ lineOutput.unit || '件' }}</span>
           </div>
+          <span class="line-output-summary__caption">今日 {{ lineOutput.fieldName }}</span>
+          <dl>
+            <div
+              ><dt>来源设备</dt><dd>{{ lineOutput.deviceMark || '--' }}</dd></div
+            >
+            <div
+              ><dt>最新增量</dt
+              ><dd
+                >+{{ formatOutput(lineOutput.latestIncrease || 0) }}
+                {{ lineOutput.unit || '件' }}</dd
+              ></div
+            >
+            <div
+              ><dt>采集状态</dt
+              ><dd :class="{ offline: !lineOutput.dataOnline }">{{
+                lineOutput.dataOnline ? '数据接收中' : '等待最新数据'
+              }}</dd></div
+            >
+          </dl>
         </div>
+        <el-empty v-else description="未绑定产量来源" :image-size="42" />
       </section>
 
       <section class="dashboard-panel dashboard-panel--robots">
         <header class="dashboard-panel__title">
-          <span>机械手工位</span><small>{{ robots.length }} 台设备</small>
+          <span>现场设备</span><small>{{ equipmentItems.length }} 个组件</small>
         </header>
         <div ref="robotStationListRef" class="robot-station-list">
           <button
-            v-for="robot in robots"
-            :key="robot.id"
-            :class="['robot-row', { 'robot-row--active': selectedId === robot.id }]"
+            v-for="item in equipmentItems"
+            :key="`${item.type}-${item.id}`"
+            :class="[
+              'robot-row',
+              {
+                'robot-row--active':
+                  selectedSceneItem?.type === item.type && selectedSceneItem.id === item.id
+              }
+            ]"
             type="button"
-            @click="emit('update:selectedId', robot.id)"
+            @click="emit('update:selectedSceneItem', { type: item.type, id: item.id })"
           >
-            <i :style="{ backgroundColor: statusMeta(robot.status).color }" />
+            <i :style="{ backgroundColor: item.color }" />
             <span
-              ><b>{{ robot.name }}</b
-              ><small>{{ robot.station }}</small></span
+              ><b>{{ item.name }}</b
+              ><small>{{ item.description }}</small></span
             >
-            <em :style="{ color: statusMeta(robot.status).color }">
-              {{ statusMeta(robot.status).label }}
-            </em>
+            <em :style="{ color: item.color }">{{ item.status }}</em>
           </button>
         </div>
       </section>
@@ -108,10 +122,14 @@
 </template>
 
 <script setup lang="ts">
-  import { onBeforeUnmount, ref, watch } from 'vue'
+  import { computed, onBeforeUnmount, ref, watch } from 'vue'
   import RobotLineScene from '@/views/production-dashboard/components/RobotLineScene.vue'
   import { ROBOT_STATUS_META } from '@/views/production-dashboard/config/robotLine'
-  import type { DashboardDeviceRuntime, DashboardRobotRuntime } from '@/api/edge-dashboard'
+  import type {
+    DashboardDeviceRuntime,
+    DashboardLineOutput,
+    DashboardRobotRuntime
+  } from '@/api/edge-dashboard'
   import type { LayoutSelection } from '@/store/modules/production-dashboard'
   import type {
     ProductionLineLayout,
@@ -134,6 +152,7 @@
     selectedSceneItem: LayoutSelection | null
     runtimeRobots: DashboardRobotRuntime[]
     runtimeDevices: DashboardDeviceRuntime[]
+    lineOutput: DashboardLineOutput | null
     statusItems: DashboardStatusOverviewItem[]
     statusPieStyle: Record<string, string>
     runningCount: number
@@ -149,8 +168,38 @@
   let robotStationScrollFrame = 0
 
   const statusMeta = (status: RobotStatus) => ROBOT_STATUS_META[status]
+  const formatOutput = (value: number) =>
+    new Intl.NumberFormat('zh-CN', {
+      maximumFractionDigits: props.lineOutput?.decimals ?? 0
+    }).format(value)
+  const equipmentItems = computed(() => {
+    const robots = props.robots.map((robot) => ({
+      type: 'robot' as const,
+      id: robot.id,
+      name: robot.name,
+      description: robot.station || '未配置工位名称',
+      status: statusMeta(robot.status).label,
+      color: statusMeta(robot.status).color
+    }))
+    const devices = props.layout.devices.map((device) => {
+      const runtime = props.runtimeDevices.find((item) => item.deviceCode === device.id)
+      const online = Boolean(runtime?.dataOnline)
+      const typeName = { generic: '通用设备', machine: '加工设备', inspection: '检测设备' }[
+        device.deviceType
+      ]
+      return {
+        type: 'device' as const,
+        id: device.id,
+        name: device.name,
+        description: `${typeName || '设备'} · ${runtime?.sourceDeviceMark || '未绑定数据源'}`,
+        status: online ? '数据在线' : runtime ? '数据离线' : '未绑定',
+        color: online ? '#20e5a3' : '#94a3b8'
+      }
+    })
+    return [...robots, ...devices]
+  })
 
-  /** 自动轮动或手动切换机械手时，让选中工位保持在列表可视区域。 */
+  /** 自动轮动或手动切换设备时，让选中项保持在列表可视区域。 */
   const scrollSelectedRobotIntoView = () => {
     window.cancelAnimationFrame(robotStationScrollFrame)
     robotStationScrollFrame = window.requestAnimationFrame(() => {
@@ -160,7 +209,7 @@
     })
   }
 
-  watch(() => props.selectedId, scrollSelectedRobotIntoView, { immediate: true })
+  watch(() => props.selectedSceneItem, scrollSelectedRobotIntoView, { deep: true, immediate: true })
   onBeforeUnmount(() => window.cancelAnimationFrame(robotStationScrollFrame))
 </script>
 
@@ -235,50 +284,63 @@
     white-space: nowrap;
   }
 
-  .status-overview {
-    padding: 8px 12px;
+  .line-output-summary {
+    padding: 8px 13px;
   }
 
-  .status-overview__item {
-    margin-bottom: 9px;
-  }
-
-  .status-overview__item > div:first-child {
+  .line-output-summary__value {
     display: flex;
-    align-items: center;
+    gap: 7px;
+    align-items: baseline;
   }
 
-  .status-overview__item i {
-    display: inline-block;
-    width: 7px;
-    height: 7px;
-    margin-right: 6px;
-    border-radius: 50%;
-  }
-
-  .status-overview__item span {
-    font-size: 11px;
-    color: #a8c1d0;
-  }
-
-  .status-overview__item b {
-    margin-left: auto;
+  .line-output-summary__value b {
     font-family: Consolas, monospace;
+    font-size: 30px;
+    line-height: 1;
+    color: #5ee1ff;
+    text-shadow: 0 0 16px rgb(94 225 255 / 32%);
+  }
+
+  .line-output-summary__value span {
     font-size: 12px;
-    color: #e7f7ff;
+    color: #8eb6c8;
   }
 
-  .status-overview__rail {
-    height: 4px;
-    margin: 5px 0 0 13px;
-    background: rgb(91 140 165 / 15%);
-  }
-
-  .status-overview__rail i {
+  .line-output-summary__caption {
     display: block;
-    height: 100%;
-    margin: 0;
-    box-shadow: 0 0 7px currentcolor;
+    margin-top: 5px;
+    font-size: 11px;
+    color: #a8cbd9;
+  }
+
+  .line-output-summary dl {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px 10px;
+    margin: 9px 0 0;
+  }
+
+  .line-output-summary dl div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .line-output-summary dt {
+    font-size: 9px;
+    color: #668a9f;
+  }
+
+  .line-output-summary dd {
+    margin: 2px 0 0;
+    overflow: hidden;
+    font-size: 10px;
+    color: #c5e1ec;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .line-output-summary dd.offline {
+    color: #f0b469;
   }
 
   .robot-row {
@@ -565,31 +627,28 @@
       height: 8px;
     }
 
-    .status-overview {
-      padding: 10px 15px;
+    .line-output-summary {
+      padding: 12px 16px;
     }
 
-    .status-overview__item {
-      margin-bottom: 11px;
+    .line-output-summary__value b {
+      font-size: 42px;
     }
 
-    .status-overview__item i {
-      width: 9px;
-      height: 9px;
-      margin-right: 8px;
-    }
-
-    .status-overview__item span {
+    .line-output-summary__value span {
       font-size: 16px;
     }
 
-    .status-overview__item b {
-      font-size: 17px;
+    .line-output-summary__caption {
+      font-size: 15px;
     }
 
-    .status-overview__rail {
-      height: 6px;
-      margin-left: 17px;
+    .line-output-summary dt {
+      font-size: 13px;
+    }
+
+    .line-output-summary dd {
+      font-size: 14px;
     }
 
     .robot-row {
@@ -739,12 +798,12 @@
       height: 30px;
     }
 
-    .status-overview {
+    .line-output-summary {
       padding: 5px 10px;
     }
 
-    .status-overview__item {
-      margin-bottom: 5px;
+    .line-output-summary__value b {
+      font-size: 25px;
     }
 
     .robot-row,

@@ -32,7 +32,7 @@
  * @author Art Design Pro Team
  */
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { LanguageEnum } from '@/enums/appEnum'
 import { router } from '@/router'
 import { useSettingStore } from './setting'
@@ -43,6 +43,7 @@ import { resetRouterState } from '@/router/guards/beforeEach'
 import { useMenuStore } from './menu'
 import { StorageConfig } from '@/utils/storage/storage-config'
 import { getOAuth2LogoutUrl } from '@/utils/auth/oauth2'
+import { getApiUrl } from '@/utils/runtime-config'
 
 interface LogoutOptions {
   /** 用户主动退出时同步结束统一身份平台会话，便于切换账号。 */
@@ -72,6 +73,45 @@ export const useUserStore = defineStore(
     const accessToken = ref('')
     // 刷新令牌
     const refreshToken = ref('')
+    let activityHeartbeatTimer: number | undefined
+
+    const sendActivitySignal = (path: string, keepalive = false) => {
+      if (!accessToken.value || typeof window === 'undefined') return
+      const token = accessToken.value.startsWith('Bearer ')
+        ? accessToken.value
+        : `Bearer ${accessToken.value}`
+      void window
+        .fetch(getApiUrl(path), {
+          method: 'POST',
+          headers: { Authorization: token },
+          keepalive
+        })
+        .catch(() => undefined)
+    }
+
+    const stopActivityHeartbeat = () => {
+      if (activityHeartbeatTimer) window.clearInterval(activityHeartbeatTimer)
+      activityHeartbeatTimer = undefined
+    }
+
+    const startActivityHeartbeat = () => {
+      stopActivityHeartbeat()
+      if (!isLogin.value || !accessToken.value || typeof window === 'undefined') return
+      sendActivitySignal('/api/user-activity/heartbeat')
+      activityHeartbeatTimer = window.setInterval(
+        () => sendActivitySignal('/api/user-activity/heartbeat'),
+        60_000
+      )
+    }
+
+    watch(
+      [accessToken, isLogin],
+      ([token, loggedIn]) => {
+        if (token && loggedIn) startActivityHeartbeat()
+        else stopActivityHeartbeat()
+      },
+      { immediate: true }
+    )
 
     // 计算属性：获取用户信息
     const getUserInfo = computed(() => info.value)
@@ -94,6 +134,8 @@ export const useUserStore = defineStore(
      */
     const setLoginStatus = (status: boolean) => {
       isLogin.value = status
+      if (status) startActivityHeartbeat()
+      else stopActivityHeartbeat()
     }
 
     /**
@@ -147,6 +189,8 @@ export const useUserStore = defineStore(
      * 如果是同一账号重新登录，保留工作台标签页
      */
     const logOut = (options: LogoutOptions = {}) => {
+      sendActivitySignal('/api/user-activity/logout', true)
+      stopActivityHeartbeat()
       // 保存当前用户 ID，用于下次登录时判断是否为同一用户
       const currentUserId = info.value.userId
       if (currentUserId) {

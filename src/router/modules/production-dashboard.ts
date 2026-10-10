@@ -33,7 +33,40 @@ export const productionDashboardRoutes: AppRouteRecord = {
         keepAlive: false,
         isFullPage: true,
         isHide: true,
-        activePath: '/production-dashboard/board',
+        activePath: '/production-dashboard/config',
+        roles: ['R_SUPER', 'R_ADMIN', 'R_ENGINEER']
+      }
+    },
+    {
+      path: 'config',
+      name: 'ProductionDashboardConfig',
+      component: '/production-dashboard/config-center',
+      meta: {
+        title: '产线看板配置',
+        keepAlive: false,
+        isFullPage: false,
+        roles: ['R_SUPER', 'R_ADMIN', 'R_ENGINEER']
+      }
+    },
+    {
+      path: 'device-cards',
+      name: 'ProductionDashboardDeviceCards',
+      component: '/production-dashboard/device-card-board',
+      meta: {
+        title: '设备卡片看板',
+        keepAlive: false,
+        isFullPage: false,
+        roles: ['R_SUPER', 'R_ADMIN', 'R_ENGINEER']
+      }
+    },
+    {
+      path: 'device-card-config',
+      name: 'ProductionDashboardDeviceCardConfig',
+      component: '/production-dashboard/device-card-config',
+      meta: {
+        title: '设备卡片配置',
+        keepAlive: false,
+        isFullPage: false,
         roles: ['R_SUPER', 'R_ADMIN', 'R_ENGINEER']
       }
     }

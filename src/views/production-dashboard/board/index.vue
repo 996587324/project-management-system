@@ -29,17 +29,14 @@
         @update:active-line-id="activeLineId = $event"
         @toggle-fullscreen="toggleDashboardFullscreen"
         @open-binding="bindingDialogOpen = true"
+        @open-output="lineOutputBindingOpen = true"
         @open-widgets="widgetConfigOpen = true"
         @open-lines="lineConfigOpen = true"
         @export-current="exportCurrentLine"
         @open-exports="exportDialogOpen = true"
       />
 
-      <dashboard-line-overview-region
-        :line="activeLine"
-        :online-count="onlineRobots"
-        :total-count="sceneRobots.length"
-      />
+      <dashboard-line-overview-region :line="activeLine" :insight="aiInsight" />
 
       <dashboard-main-region
         :robots="sceneRobots"
@@ -48,6 +45,7 @@
         :selected-scene-item="selectedSceneItem"
         :runtime-robots="runtime?.robots || []"
         :runtime-devices="runtime?.devices || []"
+        :line-output="lineOutput"
         :status-items="statusOverview"
         :status-pie-style="statusPieStyle"
         :running-count="runningRobotCount"
@@ -92,6 +90,12 @@
         @saved="refreshDashboardData"
         @deleted="refreshDashboardData"
       />
+      <dashboard-line-output-binding-dialog
+        v-if="!isReadOnly"
+        v-model="lineOutputBindingOpen"
+        :line-code="activeLineId"
+        @saved="refreshDashboardData"
+      />
       <dashboard-widget-config-dialog
         v-if="!isReadOnly"
         v-model="widgetConfigOpen"
@@ -118,6 +122,7 @@
   import DashboardLineOverviewRegion from '@/views/production-dashboard/board/components/DashboardLineOverviewRegion.vue'
   import DashboardMainRegion from '@/views/production-dashboard/board/components/DashboardMainRegion.vue'
   import DashboardRobotBindingDialog from '@/views/production-dashboard/components/DashboardRobotBindingDialog.vue'
+  import DashboardLineOutputBindingDialog from '@/views/production-dashboard/components/DashboardLineOutputBindingDialog.vue'
   import DashboardExportDialog from '@/views/production-dashboard/components/DashboardExportDialog.vue'
   import DashboardWidgetConfigDialog from '@/views/production-dashboard/components/DashboardWidgetConfigDialog.vue'
   import DashboardWidgetDetailDialog from '@/views/production-dashboard/components/DashboardWidgetDetailDialog.vue'
@@ -144,15 +149,19 @@
   import { downloadResponseStream } from '@/utils/file/stream-download'
   import {
     DashboardBootstrap,
+    DashboardAiInsight,
     DashboardDailyStatistic,
     DashboardFaultRecord,
     DashboardLineRuntime,
+    DashboardLineOutput,
     DashboardWidget,
     changeDashboardLineCode,
     deleteDashboardLineConfig,
     fetchDashboardBootstrap,
+    fetchDashboardAiInsight,
     fetchDashboardDailyStatistics,
     fetchDashboardFaultRecords,
+    fetchDashboardLineOutput,
     getDashboardLineExportUrl,
     fetchDashboardRuntime,
     fetchDashboardSceneLayout,
@@ -183,6 +192,7 @@
       DashboardLineOverviewRegion,
       DashboardMainRegion,
       DashboardRobotBindingDialog,
+      DashboardLineOutputBindingDialog,
       DashboardExportDialog,
       DashboardWidgetConfigDialog,
       DashboardWidgetDetailDialog,
@@ -207,21 +217,23 @@
         initialLine.robots[0] ? { type: 'robot', id: initialLine.robots[0].id } : null
       )
       const selectedRobotId = computed<string>({
-        get: () =>
-          selectedSceneItem.value?.type === 'robot' ? selectedSceneItem.value.id : '',
+        get: () => (selectedSceneItem.value?.type === 'robot' ? selectedSceneItem.value.id : ''),
         set: (id) => {
           selectedSceneItem.value = id ? { type: 'robot', id } : null
         }
       })
       const lineConfigOpen = ref(false)
       const bindingDialogOpen = ref(false)
+      const lineOutputBindingOpen = ref(false)
       const widgetConfigOpen = ref(false)
       const exportDialogOpen = ref(false)
       const exportLoading = ref(false)
       const now = ref(new Date())
       const runtime = ref<DashboardLineRuntime | null>(null)
+      const lineOutput = ref<DashboardLineOutput | null>(null)
       const todayStatistics = ref<DashboardDailyStatistic[]>([])
       const currentFaults = ref<DashboardFaultRecord[]>([])
+      const aiInsight = ref<DashboardAiInsight | null>(null)
       const dashboardWidgets = ref<DashboardWidget[]>([])
       const detailWidget = ref<DashboardWidget>()
       const widgetDetailOpen = ref(false)
@@ -241,6 +253,7 @@
       const sceneLayoutCache = new Map<string, ProductionLineLayout>()
       let clockTimer = 0
       let dataTimer = 0
+      let aiInsightTimer = 0
       let robotTourIdleTimer = 0
       let robotTourTimer = 0
 
@@ -304,9 +317,25 @@
           baseSceneRobots.value.find((robot) => robot.id === selectedRobotId.value) ||
           baseSceneRobots.value[0]
       )
+      const deviceStatusItems = computed(() =>
+        (runtime.value?.devices ?? []).map((device) => {
+          const rawStatus = device.status as RobotStatus
+          const status = statusOrder.includes(rawStatus)
+            ? rawStatus
+            : device.dataOnline
+              ? 'RUNNING'
+              : 'OFFLINE'
+          return {
+            id: device.deviceCode,
+            name: device.deviceName || device.deviceCode,
+            status,
+            currentAlarm: device.currentAlarm,
+            time: device.dataTime || device.receiveTime
+          }
+        })
+      )
       const activeAlarms = computed(() => {
-        if (!currentFaults.value.length) return activeLine.value.alarms
-        return currentFaults.value.map((fault) => ({
+        const robotAlarms = currentFaults.value.map((fault) => ({
           id: String(fault.id),
           time: new Date(fault.startTime).toLocaleTimeString('zh-CN', { hour12: false }),
           robotId: fault.robotName || fault.robotCode,
@@ -314,18 +343,36 @@
           level: fault.severity === 'Critical' ? ('ALARM' as const) : ('WARNING' as const),
           duration: formatSeconds(fault.durationSeconds)
         }))
+        const deviceAlarms = deviceStatusItems.value
+          .filter((device) => device.status === 'WARNING' || device.status === 'ALARM')
+          .map((device) => ({
+            id: `device-${device.id}`,
+            time: device.time
+              ? new Date(device.time).toLocaleTimeString('zh-CN', { hour12: false })
+              : '--:--:--',
+            robotId: device.name,
+            message: device.currentAlarm || (device.status === 'ALARM' ? '设备报警' : '设备预警'),
+            level: device.status === 'ALARM' ? ('ALARM' as const) : ('WARNING' as const),
+            duration: '实时'
+          }))
+        const alarms = [...robotAlarms, ...deviceAlarms]
+        return alarms.length ? alarms : activeLine.value.alarms
       })
+      const statusItems = computed(() => [
+        ...sceneRobots.value.map((robot) => robot.status),
+        ...deviceStatusItems.value.map((device) => device.status)
+      ])
       const statusOverview = computed(() =>
         statusOrder
           .map((status) => ({
             status,
             ...ROBOT_STATUS_META[status],
-            count: sceneRobots.value.filter((robot) => robot.status === status).length
+            count: statusItems.value.filter((item) => item === status).length
           }))
           .filter((item) => item.count || ['RUNNING', 'IDLE', 'FAULT'].includes(item.status))
       )
       const statusPieStyle = computed(() => {
-        const total = sceneRobots.value.length
+        const total = statusItems.value.length
         if (!total) return { background: 'conic-gradient(#31495c 0deg 360deg)' }
         let start = 0
         const slices = statusOverview.value
@@ -807,27 +854,30 @@
         if (dashboardBootstrapping.value || dashboardOffline.value) return
         const lineCode = activeLineId.value
         const date = localDate()
-        const [runtimeResult, statisticsResult, faultsResult] = await Promise.allSettled([
-          fetchDashboardRuntime(lineCode, isReadOnly.value),
-          fetchDashboardDailyStatistics(
-            {
-              current: 1,
-              size: 200,
-              lineCode,
-              dateFrom: date,
-              dateTo: date
-            },
-            isReadOnly.value
-          ),
-          fetchDashboardFaultRecords(
-            { current: 1, size: 100, lineCode, status: 'Active' },
-            isReadOnly.value
-          )
-        ])
+        const [runtimeResult, statisticsResult, faultsResult, outputResult] =
+          await Promise.allSettled([
+            fetchDashboardRuntime(lineCode, isReadOnly.value),
+            fetchDashboardDailyStatistics(
+              {
+                current: 1,
+                size: 200,
+                lineCode,
+                dateFrom: date,
+                dateTo: date
+              },
+              isReadOnly.value
+            ),
+            fetchDashboardFaultRecords(
+              { current: 1, size: 100, lineCode, status: 'Active' },
+              isReadOnly.value
+            ),
+            fetchDashboardLineOutput(lineCode, isReadOnly.value)
+          ])
         if (runtimeResult.status === 'fulfilled') runtime.value = runtimeResult.value
         if (statisticsResult.status === 'fulfilled')
           todayStatistics.value = statisticsResult.value.records
         if (faultsResult.status === 'fulfilled') currentFaults.value = faultsResult.value.records
+        if (outputResult.status === 'fulfilled') lineOutput.value = outputResult.value
       }
 
       const loadDashboardWidgets = async () => {
@@ -843,6 +893,23 @@
           )
         } catch {
           dashboardWidgets.value = []
+        }
+      }
+
+      const loadAiInsight = async () => {
+        if (dashboardBootstrapping.value || dashboardOffline.value) {
+          aiInsight.value = null
+          return
+        }
+        try {
+          aiInsight.value = await fetchDashboardAiInsight(
+            DASHBOARD_CODE,
+            activeLineId.value,
+            isReadOnly.value
+          )
+        } catch {
+          // 网络或模型服务异常时不显示旧建议，避免以过期内容误导现场。
+          aiInsight.value = null
         }
       }
 
@@ -878,10 +945,13 @@
         rememberProductionDashboardLine(activeLineId.value)
         selectedRobotId.value = sceneRobots.value[0]?.id || ''
         runtime.value = null
+        lineOutput.value = null
         todayStatistics.value = []
         currentFaults.value = []
+        aiInsight.value = null
         refreshDashboardData()
         loadDashboardWidgets()
+        loadAiInsight()
         loadActiveLineLayout()
         resetRobotTour()
       })
@@ -899,8 +969,9 @@
         }, 1000)
         await initializeDashboard()
         rememberProductionDashboardLine(activeLineId.value)
-        await Promise.allSettled([refreshDashboardData(), loadDashboardWidgets()])
+        await Promise.allSettled([refreshDashboardData(), loadDashboardWidgets(), loadAiInsight()])
         dataTimer = window.setInterval(refreshDashboardData, 5000)
+        aiInsightTimer = window.setInterval(loadAiInsight, 30_000)
         window.addEventListener('pointerdown', resetRobotTour, { passive: true })
         window.addEventListener('keydown', resetRobotTour)
         window.addEventListener('wheel', resetRobotTour, { passive: true })
@@ -910,6 +981,7 @@
       onBeforeUnmount(() => {
         window.clearInterval(clockTimer)
         window.clearInterval(dataTimer)
+        window.clearInterval(aiInsightTimer)
         window.clearTimeout(robotTourIdleTimer)
         stopRobotTour()
         window.removeEventListener('pointerdown', resetRobotTour)
@@ -931,8 +1003,11 @@
         selectedRobotId,
         selectedSceneItem,
         runtime,
+        lineOutput,
+        aiInsight,
         lineConfigOpen,
         bindingDialogOpen,
+        lineOutputBindingOpen,
         widgetConfigOpen,
         exportDialogOpen,
         exportLoading,

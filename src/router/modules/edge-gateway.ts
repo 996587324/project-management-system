@@ -5,7 +5,7 @@ export const edgeGatewayRoutes: AppRouteRecord = {
   name: 'EdgeGateway',
   component: '/index/index',
   meta: {
-    title: '边缘网关',
+    title: '中转管理',
     icon: 'ri:router-line',
     roles: ['R_SUPER', 'R_ADMIN', 'R_ENGINEER']
   },
@@ -17,6 +17,26 @@ export const edgeGatewayRoutes: AppRouteRecord = {
       meta: {
         title: '运行中心',
         keepAlive: true,
+        roles: ['R_SUPER', 'R_ADMIN', 'R_ENGINEER']
+      }
+    },
+    {
+      path: 'data-trace',
+      name: 'EdgeDataTrace',
+      component: '/edge-gateway/data-trace',
+      meta: {
+        title: '数据追溯',
+        keepAlive: true,
+        roles: ['R_SUPER', 'R_ADMIN', 'R_ENGINEER']
+      }
+    },
+    {
+      path: 'data-trace/detail',
+      name: 'EdgeDataTraceDetail',
+      component: '/edge-gateway/data-trace/detail',
+      meta: {
+        title: '参数详情',
+        hideInMenu: true,
         roles: ['R_SUPER', 'R_ADMIN', 'R_ENGINEER']
       }
     }

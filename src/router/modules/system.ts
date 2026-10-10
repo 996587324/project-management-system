@@ -31,6 +31,16 @@ export const systemRoutes: AppRouteRecord = {
       }
     },
     {
+      path: 'user-activity',
+      name: 'UserActivity',
+      component: '/system/user-activity',
+      meta: {
+        title: '用户行为日志',
+        keepAlive: true,
+        roles: ['R_SUPER', 'R_ADMIN']
+      }
+    },
+    {
       path: 'user-center',
       name: 'UserCenter',
       component: '/system/user-center',
