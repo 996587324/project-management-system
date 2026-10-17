@@ -5,7 +5,7 @@
   >
     <div class="flex-cc !hidden max-[980px]:!flex ml-2 max-sm:ml-6">
       <ArtLogo class="icon" size="46" />
-      <h1 class="text-xl ont-mediumf ml-2">{{ AppConfig.systemInfo.name }}</h1>
+      <h1 class="text-xl ont-mediumf ml-2">{{ applicationDisplayName }}</h1>
     </div>
 
     <div class="flex-cc gap-1.5 mr-2 max-sm:mr-5">
@@ -71,6 +71,7 @@
 </template>
 
 <script setup lang="ts">
+  import { applicationDisplayName } from '@/utils/system-applications/client'
   import { useI18n } from 'vue-i18n'
   import { useSettingStore } from '@/store/modules/setting'
   import { useUserStore } from '@/store/modules/user'

@@ -14,11 +14,7 @@
         <div class="widget-config__chart-layout">
           <b>图表每行数量</b>
           <el-segmented v-model="chartPerRow" :options="chartPerRowOptions" block />
-          <el-button
-            plain
-            class="w-full"
-            :loading="applyingChartLayout"
-            @click="applyChartLayout"
+          <el-button plain class="w-full" :loading="applyingChartLayout" @click="applyChartLayout"
             >应用到全部图表</el-button
           >
           <small>仅调整饼图、柱状图；表格保持原宽度。</small>
@@ -624,8 +620,8 @@
 
   .widget-config__list-item.active {
     color: var(--el-color-primary);
-    background: rgb(38 132 190 / 16%);
-    border-color: rgb(38 132 190 / 72%);
+    background: var(--el-color-primary-light-9);
+    border-color: var(--el-color-primary);
     box-shadow: inset 3px 0 0 var(--el-color-primary);
   }
 

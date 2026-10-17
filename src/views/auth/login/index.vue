@@ -102,7 +102,10 @@
 </template>
 
 <script setup lang="ts">
-  import AppConfig from '@/config'
+  import {
+    applicationDisplayName,
+    loadApplicationEntryInformation
+  } from '@/utils/system-applications/client'
   import { useUserStore } from '@/store/modules/user'
   import { useI18n } from 'vue-i18n'
   import { HttpError } from '@/utils/http/error'
@@ -141,7 +144,7 @@
     displayName: '统一身份认证'
   })
 
-  const systemName = AppConfig.systemInfo.name
+  const systemName = applicationDisplayName
   const formRef = ref<FormInstance>()
 
   const formData = reactive({
@@ -159,6 +162,7 @@
 
   onMounted(async () => {
     restoreRememberedAccount()
+    void loadApplicationEntryInformation().catch(() => undefined)
     await initializeOAuthLogin()
   })
 
@@ -182,9 +186,10 @@
   const completeLogin = async (token: string, refreshToken?: string, redirect?: string) => {
     if (!token) throw new Error('Login failed - no token received')
     userStore.setToken(token, refreshToken)
+    sessionStorage.setItem('calmadmin:portal-token', token)
     userStore.setLoginStatus(true)
     showLoginSuccessNotice()
-    await router.replace(redirect || '/')
+    await router.replace(redirect?.startsWith('/portal') ? redirect : '/portal')
   }
 
   const handleOAuthCallback = async (ticket: string) => {

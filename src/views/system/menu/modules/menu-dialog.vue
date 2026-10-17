@@ -25,6 +25,36 @@
           <ElRadioButton value="button" label="button">按钮</ElRadioButton>
         </ElRadioGroup>
       </template>
+      <template #component>
+        <ElSelect
+          v-if="isSystemB"
+          v-model="form.component"
+          filterable
+          clearable
+          style="width: 100%"
+          placeholder="选择可复用的业务组件，目录可留空"
+        >
+          <ElOption
+            v-for="item in componentOptions"
+            :key="item.value"
+            :value="item.value"
+            :label="item.label"
+          />
+        </ElSelect>
+        <ElInput v-else v-model="form.component" placeholder="如：/system/user 或留空" />
+      </template>
+      <template #activePath>
+        <ElSelect v-if="isSystemB" v-model="form.parentId" filterable style="width: 100%">
+          <ElOption :value="0" label="顶级菜单" />
+          <ElOption
+            v-for="item in parentOptions"
+            :key="item.id"
+            :value="item.id"
+            :label="item.label"
+          />
+        </ElSelect>
+        <ElInput v-else v-model="form.activePath" placeholder="如：/system" />
+      </template>
     </ArtForm>
 
     <template #footer>
@@ -45,6 +75,10 @@
   import type { FormItem } from '@/components/core/forms/art-form/index.vue'
   import ArtForm from '@/components/core/forms/art-form/index.vue'
   import { useWindowSize } from '@vueuse/core'
+  import { applicationRequest, getApplicationCode } from '@/utils/system-applications/client'
+
+  const isSystemB = getApplicationCode() === 'B'
+  const componentOptions = ref<{ value: string; label: string }[]>([])
 
   const { width } = useWindowSize()
 
@@ -75,6 +109,7 @@
     type?: 'menu' | 'button'
     action: 'add' | 'edit'
     lockType?: boolean
+    menus?: AppRouteRecord[]
   }
 
   interface Emits {
@@ -93,9 +128,12 @@
   const formRef = ref()
   const isEdit = ref(false)
 
-  const form = reactive<Api.SystemManage.MenuFormData & { menuType: 'menu' | 'button' }>({
+  const form = reactive<
+    Api.SystemManage.MenuFormData & { menuType: 'menu' | 'button'; parentId: number }
+  >({
     menuType: 'menu',
     id: 0,
+    parentId: 0,
     name: '',
     path: '',
     label: '',
@@ -125,7 +163,7 @@
   const rules = reactive<FormRules>({
     name: [
       { required: true, message: '请输入菜单标识', trigger: 'blur' },
-      { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
+      { min: 2, max: 128, message: '长度在 2 到 128 个字符', trigger: 'blur' }
     ],
     path: [{ required: true, message: '请输入路由地址', trigger: 'blur' }],
     label: [{ required: true, message: '请输入菜单名称', trigger: 'blur' }],
@@ -167,7 +205,6 @@
             '一级父级菜单：填写 /index/index\n具体页面：填写组件路径（如 /system/user）\n目录菜单：留空'
           ),
           key: 'component',
-          type: 'input',
           props: { placeholder: '如：/system/user 或留空' }
         },
         { label: '图标', key: 'icon', type: 'input', props: { placeholder: '如：ri:user-line' } },
@@ -201,7 +238,6 @@
         {
           label: createLabelTooltip('父路径', '配置父级菜单路径（如：/system）\n'),
           key: 'activePath',
-          type: 'input',
           props: { placeholder: '如：/system' }
         },
         { label: '是否启用', key: 'isEnable', type: 'switch', span: switchSpan },
@@ -258,10 +294,42 @@
   const resetForm = (): void => {
     formRef.value?.reset()
     form.menuType = 'menu'
+    form.id = 0
+    form.parentId = 0
   }
-  const getParentPath = (path: string) => {
-    const parts = path.split('/').filter(Boolean)
-    return parts.length <= 1 ? '' : '/' + parts[0]
+  const parentOptions = computed(() => {
+    const result: { id: number; label: string }[] = []
+    const visit = (items: AppRouteRecord[], parent = '') => {
+      items.forEach((item) => {
+        if (String(item.id) === String(form.id)) return
+        const fullPath = item.path.startsWith('/') ? item.path : `${parent}/${item.path}`
+        result.push({
+          id: Number(item.id),
+          label: `${formatMenuTitle(item.meta.title)} (${fullPath})`
+        })
+        if (item.children?.length) visit(item.children, fullPath)
+      })
+    }
+    visit(props.menus || [])
+    return result
+  })
+
+  async function loadComponents() {
+    if (!isSystemB) return
+    try {
+      const catalog = await applicationRequest<{
+        menus: { component: string; metaTitle: string }[]
+      }>('/api/system-applications/administration')
+      const entries = new Map<string, string>()
+      catalog.menus.forEach((item) => {
+        if (item.component)
+          entries.set(item.component, `${formatMenuTitle(item.metaTitle)} (${item.component})`)
+      })
+      entries.set('/index/index', '后台布局目录 (/index/index)')
+      componentOptions.value = Array.from(entries, ([value, label]) => ({ value, label }))
+    } catch (error) {
+      ElMessage.error((error as Error).message)
+    }
   }
 
   /**
@@ -270,7 +338,7 @@
   const loadFormData = (): void => {
     if (!props.editData) return
 
-    isEdit.value = true
+    isEdit.value = props.action === 'edit'
 
     if (form.menuType === 'menu') {
       const row = props.editData
@@ -293,11 +361,13 @@
       form.showBadge = row.meta?.showBadge ?? false
       form.showTextBadge = row.meta?.showTextBadge || ''
       form.fixedTab = row.meta?.fixedTab ?? false
-      form.activePath = getParentPath(row.component || '')
+      form.activePath = row.parentPath || ''
+      form.parentId = Number(row.parentId || 0)
       form.roles = row.meta?.roles || []
       form.isFullPage = row.meta?.isFullPage ?? false
     } else {
       const row = props.editData
+      form.id = Number(row.parentMenuId || 0)
       form.authName = row.title || ''
       form.authLabel = row.authMark || ''
       form.authIcon = row.icon || ''
@@ -344,6 +414,8 @@
     () => props.visible,
     (newVal) => {
       if (newVal) {
+        isEdit.value = props.action === 'edit'
+        void loadComponents()
         form.menuType = props.type
         form.action = props.action
         nextTick(() => {

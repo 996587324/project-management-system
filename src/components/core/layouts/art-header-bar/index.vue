@@ -18,7 +18,7 @@
         <!-- 系统信息  -->
         <div class="flex-c c-p" @click="toHome" v-if="isTopMenu">
           <ArtLogo class="pl-4.5" />
-          <p v-if="width >= 1400" class="my-0 mx-2 ml-2 text-lg">{{ AppConfig.systemInfo.name }}</p>
+          <p v-if="width >= 1400" class="my-0 mx-2 ml-2 text-lg">{{ applicationDisplayName }}</p>
         </div>
 
         <ArtLogo
@@ -61,6 +61,8 @@
       </div>
 
       <div class="flex-c gap-2.5">
+        <ElButton text @click="$router.push('/portal')">切换系统</ElButton>
+        <SystemMcpAccess />
         <!-- 搜索 -->
         <div
           v-if="shouldShowGlobalSearch"
@@ -169,6 +171,8 @@
 </template>
 
 <script setup lang="ts">
+  import SystemMcpAccess from '@/components/business/system-mcp-access/index.vue'
+  import { applicationDisplayName } from '@/utils/system-applications/client'
   import { useI18n } from 'vue-i18n'
   import { useRouter } from 'vue-router'
   import { useFullscreen, useWindowSize } from '@vueuse/core'
@@ -176,7 +180,6 @@
   import { useSettingStore } from '@/store/modules/setting'
   import { useUserStore } from '@/store/modules/user'
   import { useMenuStore } from '@/store/modules/menu'
-  import AppConfig from '@/config'
   import { languageOptions } from '@/locales'
   import { mittBus } from '@/utils/sys'
   import { themeAnimation } from '@/utils/ui/animation'

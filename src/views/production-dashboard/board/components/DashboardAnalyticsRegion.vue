@@ -48,7 +48,7 @@
     justify-content: space-between;
     min-height: 0;
     padding: 0 2px 6px;
-    border-bottom: 1px solid rgb(82 168 207 / 24%);
+    border-bottom: 1px solid var(--pd-border, rgb(82 168 207 / 24%));
   }
 
   .production-dashboard__analytics > header > div {
@@ -59,7 +59,7 @@
 
   .production-dashboard__analytics > header span {
     font-size: 9px;
-    color: #42c9ef;
+    color: var(--pd-primary, #42c9ef);
     letter-spacing: 1.6px;
   }
 
@@ -67,12 +67,12 @@
     margin: 0;
     font-size: 14px;
     font-weight: 600;
-    color: #eaf8ff;
+    color: var(--pd-text, #eaf8ff);
   }
 
   .production-dashboard__analytics > header small {
     font-size: 11px;
-    color: #6f91a4;
+    color: var(--pd-muted, #6f91a4);
   }
 
   .production-dashboard__analytics-grid {

@@ -28,7 +28,7 @@
 
       <ArtTable
         ref="tableRef"
-        rowKey="path"
+        rowKey="name"
         :loading="loading"
         :columns="columns"
         :data="filteredTableData"
@@ -44,6 +44,7 @@
         :editData="editData"
         :action="action"
         :lockType="lockMenuType"
+        :menus="tableData"
         @submit="handleSubmit"
       />
     </ElCard>
@@ -56,8 +57,14 @@
   import { useTableColumns } from '@/hooks/core/useTableColumns'
   import type { AppRouteRecord } from '@/types/router'
   import MenuDialog from './modules/menu-dialog.vue'
-  import { fetchDeleteMenu, fetchGetMenuList, fetchSetMenu ,fetchEditMenu} from '@/api/system-manage'
+  import {
+    fetchDeleteMenu,
+    fetchGetMenuList,
+    fetchSetMenu,
+    fetchEditMenu
+  } from '@/api/system-manage'
   import { ElTag, ElMessageBox } from 'element-plus'
+  import { applicationRequest, getApplicationCode } from '@/utils/system-applications/client'
   defineOptions({ name: 'Menus' })
 
   // 状态管理
@@ -107,7 +114,18 @@
     loading.value = true
 
     try {
-      const list = await fetchGetMenuList()
+      const list =
+        getApplicationCode() === 'B'
+          ? await applicationRequest<AppRouteRecord[]>('/api/Menu/GetManagementMenuTree')
+          : await fetchGetMenuList()
+      const assignParents = (items: AppRouteRecord[], parentId = 0, parentPath = '') => {
+        items.forEach((item) => {
+          Object.assign(item, { parentId, parentPath })
+          const fullPath = item.path.startsWith('/') ? item.path : `${parentPath}/${item.path}`
+          if (item.children?.length) assignParents(item.children, Number(item.id), fullPath)
+        })
+      }
+      assignParents(list)
       tableData.value = list
     } catch (error) {
       throw error instanceof Error ? error : new Error('获取菜单失败')
@@ -206,7 +224,7 @@
             }),
             h(ArtButtonTable, {
               type: 'delete',
-              onClick: () => handleDeleteAuth()
+              onClick: () => handleDeleteAuth(row)
             })
           ])
         }
@@ -214,7 +232,7 @@
         return h('div', buttonStyle, [
           h(ArtButtonTable, {
             type: 'add',
-            onClick: () => handleAddAuth(),
+            onClick: () => handleAddAuth(row),
             title: '新增权限'
           }),
           h(ArtButtonTable, {
@@ -298,7 +316,8 @@
               title: auth.title,
               authMark: auth.authMark,
               isAuthButton: true,
-              parentPath: item.path
+              parentPath: item.path,
+              parentMenuId: item.id
             }
           })
         )
@@ -366,10 +385,10 @@
   /**
    * 添加权限按钮
    */
-  const handleAddAuth = (): void => {
-    dialogType.value = 'menu'
+  const handleAddAuth = (row: AppRouteRecord): void => {
+    dialogType.value = getApplicationCode() === 'B' ? 'button' : 'menu'
     action.value = 'add'
-    editData.value = null
+    editData.value = getApplicationCode() === 'B' ? { parentMenuId: row.id } : null
     lockMenuType.value = false
     dialogVisible.value = true
   }
@@ -392,7 +411,9 @@
    */
   const handleEditAuth = (row: AppRouteRecord): void => {
     dialogType.value = 'button'
+    action.value = 'edit'
     editData.value = {
+      parentMenuId: row.meta?.parentMenuId,
       title: row.meta?.title,
       authMark: row.meta?.authMark
     }
@@ -410,7 +431,7 @@
     icon?: string
     roles?: string[]
     sort?: number
-    action:string
+    action: string
     [key: string]: any
   }
 
@@ -418,12 +439,11 @@
    * 提交表单数据
    * @param formData 表单数据
    */
-  const handleSubmit = async(formData: MenuFormData): Promise<void> => {
-    if(formData.action === 'add'){
+  const handleSubmit = async (formData: MenuFormData): Promise<void> => {
+    if (formData.action === 'add') {
       await fetchSetMenu(formData)
       ElMessage.success('添加成功')
-    }
-    else if(formData.action === 'edit'){
+    } else if (formData.action === 'edit') {
       await fetchEditMenu(formData)
       ElMessage.success('编辑成功')
     }
@@ -459,13 +479,19 @@
   /**
    * 删除权限按钮
    */
-  const handleDeleteAuth = async (): Promise<void> => {
+  const handleDeleteAuth = async (row: AppRouteRecord): Promise<void> => {
     try {
       await ElMessageBox.confirm('确定要删除该权限吗？删除后无法恢复', '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       })
+      if (getApplicationCode() === 'B') {
+        await applicationRequest(
+          `/api/Menu/DeleteMenuButton?menuId=${encodeURIComponent(String(row.meta.parentMenuId))}&authMark=${encodeURIComponent(String(row.meta.authMark))}`,
+          {}
+        )
+      }
       ElMessage.success('删除成功')
       getMenuList()
     } catch (error) {

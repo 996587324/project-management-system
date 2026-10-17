@@ -43,7 +43,9 @@ interface AuthBinding extends DirectiveBinding {
 function checkAuthPermission(el: HTMLElement, binding: AuthBinding): void {
   const userStore = useUserStore()
   const permissionKeys = userStore.getUserInfo.permissionKeys || []
-  const routeName = String(router.currentRoute.value.name || '')
+  const routeName = String(
+    router.currentRoute.value.meta.permissionKey || router.currentRoute.value.name || ''
+  )
 
   if (permissionKeys.includes('*')) return
 

@@ -592,7 +592,7 @@
     width: 100%;
     height: 68vh;
     background: #fff;
-    border: 1px solid var(--art-border-color);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 6px;
   }
 
@@ -602,8 +602,8 @@
     overflow: auto;
     line-height: 1.75;
     color: var(--art-gray-900);
-    background: #fff;
-    border: 1px solid var(--art-border-color);
+    background: var(--el-bg-color);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 6px;
 
     :deep(p) {
@@ -619,7 +619,7 @@
     :deep(td),
     :deep(th) {
       padding: 8px;
-      border: 1px solid #dcdfe6;
+      border: 1px solid var(--el-border-color);
     }
   }
 
@@ -636,8 +636,8 @@
   .sheet-table-wrap {
     flex: 1;
     overflow: auto;
-    background: #fff;
-    border: 1px solid var(--art-border-color);
+    background: var(--el-bg-color);
+    border: 1px solid var(--el-border-color-lighter);
     border-radius: 6px;
   }
 
@@ -655,8 +655,8 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      border-right: 1px solid #ebeef5;
-      border-bottom: 1px solid #ebeef5;
+      border-right: 1px solid var(--el-border-color-lighter);
+      border-bottom: 1px solid var(--el-border-color-lighter);
     }
 
     th {
@@ -664,7 +664,7 @@
       top: 0;
       z-index: 1;
       font-weight: 600;
-      background: #f5f7fa;
+      background: var(--el-fill-color-light);
     }
   }
 

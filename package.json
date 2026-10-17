@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "vite --open",
     "build": "vite build",
+    "dev:b": "vite --mode system-b --port 3007",
+    "build:b": "vite build --mode system-b",
     "typecheck": "vue-tsc --noEmit",
     "build:verify": "pnpm typecheck && pnpm build",
     "serve": "vite preview",

@@ -14,7 +14,8 @@
     <template #reference>
       <img
         class="size-8.5 mr-5 c-p rounded-full max-sm:w-6.5 max-sm:h-6.5 max-sm:mr-[16px]"
-        src="@imgs/user/avatar.webp"
+        :src="avatarSrc"
+        @error="avatarLoadError"
         alt="avatar"
       />
     </template>
@@ -23,7 +24,8 @@
         <div class="flex-c pb-1 px-0">
           <img
             class="w-10 h-10 mr-3 ml-0 overflow-hidden rounded-full float-left"
-            src="@imgs/user/avatar.webp"
+            :src="avatarSrc"
+            @error="avatarLoadError"
           />
           <div class="w-[calc(100%-60px)] h-full">
             <span class="block text-sm font-medium text-g-800 truncate">{{
@@ -33,7 +35,7 @@
           </div>
         </div>
         <ul class="py-4 mt-3 border-t border-g-300/80">
-          <li class="btn-item" @click="goPage('/system/user-center')">
+          <li class="btn-item" @click="goPage('/account/profile')">
             <ArtSvgIcon icon="ri:user-3-line" />
             <span>{{ $t('topBar.user.userCenter') }}</span>
           </li>
@@ -65,6 +67,7 @@
   import { ElMessageBox } from 'element-plus'
   import { useUserStore } from '@/store/modules/user'
   import { mittBus } from '@/utils/sys'
+  import { avatarSrc, avatarLoadError } from '@/utils/user-avatar/resource'
 
   defineOptions({ name: 'ArtUserMenu' })
 

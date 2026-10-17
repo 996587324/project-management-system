@@ -307,7 +307,7 @@
     display: grid;
     place-items: center;
     padding: 12px;
-    background: rgb(1 8 15 / 72%);
+    background: var(--pd-mask, rgb(1 8 15 / 72%));
     backdrop-filter: blur(3px);
   }
 
@@ -317,10 +317,10 @@
     width: min(820px, 100%);
     max-height: calc(100dvh - 24px);
     overflow: hidden;
-    background: #071a2a;
-    border: 1px solid rgb(89 203 250 / 45%);
-    border-radius: 6px;
-    box-shadow: 0 0 35px rgb(22 135 183 / 32%);
+    background: var(--pd-panel, #071a2a);
+    border: 1px solid var(--pd-border, rgb(89 203 250 / 45%));
+    border-radius: var(--pd-radius, 6px);
+    box-shadow: var(--pd-shadow, 0 0 35px rgb(22 135 183 / 32%));
   }
 
   .line-config-dialog__header {
@@ -329,13 +329,13 @@
     align-items: center;
     justify-content: space-between;
     padding: 15px 18px;
-    border-bottom: 1px solid rgb(91 190 236 / 18%);
+    border-bottom: 1px solid var(--pd-border, rgb(91 190 236 / 18%));
   }
 
   .line-config-dialog__header span,
   .line-config-create header span {
     font-size: 10px;
-    color: #54d5ff;
+    color: var(--pd-primary, #54d5ff);
     letter-spacing: 1px;
   }
 
@@ -343,7 +343,7 @@
   .line-config-create h3 {
     margin: 3px 0 0;
     font-size: 18px;
-    color: #eefaff;
+    color: var(--pd-text, #eefaff);
   }
 
   .line-config-dialog__header > button {
@@ -351,7 +351,7 @@
     height: 32px;
     padding: 0;
     font-size: 24px;
-    color: #8cb1c5;
+    color: var(--pd-muted, #8cb1c5);
     cursor: pointer;
     background: transparent;
     border: 0;
@@ -366,7 +366,7 @@
   .line-config-dialog__hint {
     margin: 0 0 12px;
     font-size: 11px;
-    color: #7a9aae;
+    color: var(--pd-muted, #7a9aae);
   }
 
   .line-config-list {
@@ -376,9 +376,9 @@
 
   .line-config-item,
   .line-config-create {
-    background: #091f30;
-    border: 1px solid rgb(90 151 182 / 20%);
-    border-radius: 5px;
+    background: var(--pd-panel, #091f30);
+    border: 1px solid var(--pd-border, rgb(90 151 182 / 20%));
+    border-radius: var(--pd-radius, 5px);
   }
 
   .line-config-item__header {
@@ -388,7 +388,7 @@
     justify-content: space-between;
     min-height: 42px;
     padding: 8px 12px;
-    border-bottom: 1px solid rgb(90 151 182 / 13%);
+    border-bottom: 1px solid var(--pd-border, rgb(90 151 182 / 13%));
   }
 
   .line-config-item__header > div {
@@ -408,13 +408,13 @@
   .line-config-item__header b {
     flex: 0 0 auto;
     font-size: 12px;
-    color: #dff5ff;
+    color: var(--pd-text, #dff5ff);
   }
 
   .line-config-item__header span {
     overflow: hidden;
     font-size: 12px;
-    color: #a4c3d3;
+    color: var(--pd-text, #a4c3d3);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -422,7 +422,7 @@
   .line-config-item__header small {
     flex: 0 0 auto;
     font-size: 10px;
-    color: #6f91a5;
+    color: var(--pd-muted, #6f91a5);
   }
 
   .line-config-item__content {
@@ -448,14 +448,14 @@
 
   .line-config-item__content dt {
     font-size: 9px;
-    color: #62869a;
+    color: var(--pd-muted, #62869a);
   }
 
   .line-config-item__content dd {
     margin: 3px 0 0;
     overflow: hidden;
     font-size: 11px;
-    color: #c6e0eb;
+    color: var(--pd-text, #c6e0eb);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -496,7 +496,7 @@
 
   .line-config-field > span:first-child {
     font-size: 10px;
-    color: #789aac;
+    color: var(--pd-muted, #789aac);
   }
 
   .line-config-field > input,
@@ -504,15 +504,15 @@
     min-width: 0;
     height: 34px;
     padding: 0 9px;
-    color: #e3f4fb;
-    background: #0c2639;
-    border: 1px solid rgb(95 193 239 / 30%);
-    border-radius: 3px;
+    color: var(--pd-text, #e3f4fb);
+    background: var(--pd-panel, #0c2639);
+    border: 1px solid var(--pd-border, rgb(95 193 239 / 30%));
+    border-radius: var(--pd-radius, 3px);
     outline: 0;
   }
 
   .line-config-field input:focus {
-    border-color: #5ad6ff;
+    border-color: var(--pd-border, #5ad6ff);
   }
 
   .line-color-control {
@@ -527,9 +527,9 @@
     height: 34px;
     padding: 3px;
     cursor: pointer;
-    background: #0c2639;
-    border: 1px solid rgb(95 193 239 / 30%);
-    border-radius: 3px;
+    background: var(--pd-panel, #0c2639);
+    border: 1px solid var(--pd-border, rgb(95 193 239 / 30%));
+    border-radius: var(--pd-radius, 3px);
   }
 
   .line-enabled-control {
@@ -553,7 +553,7 @@
     width: 34px;
     height: 18px;
     cursor: pointer;
-    background: #395467;
+    background: var(--pd-muted, #395467);
     border-radius: 9px;
   }
 
@@ -564,13 +564,13 @@
     width: 14px;
     height: 14px;
     content: '';
-    background: #c9d9e1;
+    background: var(--pd-button-text, #c9d9e1);
     border-radius: 50%;
     transition: transform 0.18s ease;
   }
 
   .line-enabled-control input:checked + i {
-    background: #2ebd8c;
+    background: var(--pd-success, #2ebd8c);
   }
 
   .line-enabled-control input:checked + i::after {
@@ -580,7 +580,7 @@
   .line-enabled-control em {
     font-size: 11px;
     font-style: normal;
-    color: #b4ceda;
+    color: var(--pd-text, #b4ceda);
   }
 
   .line-config-form__actions {
@@ -596,11 +596,11 @@
     padding: 0 13px;
     font-size: 11px;
     font-weight: 700;
-    color: #062035;
+    color: var(--pd-button-text, #062035);
     cursor: pointer;
-    background: #65d7fb;
-    border: 1px solid #4ac7f1;
-    border-radius: 3px;
+    background: var(--pd-primary, #65d7fb);
+    border: 1px solid var(--pd-border, #4ac7f1);
+    border-radius: var(--pd-radius, 3px);
   }
 
   .line-config-item__actions {
@@ -610,14 +610,14 @@
   }
 
   .line-config-form__actions .line-config-button--secondary {
-    color: #9fc0cf;
+    color: var(--pd-text, #9fc0cf);
     background: transparent;
   }
 
   .line-config-item__actions .line-config-button--danger {
-    color: #ee8290;
+    color: var(--pd-danger, #ee8290);
     background: transparent;
-    border-color: rgb(238 130 144 / 55%);
+    border-color: var(--pd-danger, rgb(238 130 144 / 55%));
   }
 
   .line-config-form__actions button:disabled,
@@ -628,7 +628,7 @@
 
   .line-config-create {
     margin-top: 14px;
-    border-color: rgb(84 213 255 / 35%);
+    border-color: var(--pd-border, rgb(84 213 255 / 35%));
   }
 
   .line-config-create header {

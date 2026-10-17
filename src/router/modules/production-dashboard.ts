@@ -14,6 +14,18 @@ export const productionDashboardRoutes: AppRouteRecord = {
   },
   children: [
     {
+      path: 'process-board',
+      name: 'ProcessBoard',
+      component: '/process-board/board',
+      meta: { title: '产线工艺看板', keepAlive: false }
+    },
+    {
+      path: 'process-config',
+      name: 'ProcessBoardConfig',
+      component: '/process-board/config',
+      meta: { title: '工艺看板配置', keepAlive: false }
+    },
+    {
       path: 'board',
       name: 'ProductionDashboardBoard',
       component: '/production-dashboard/board',

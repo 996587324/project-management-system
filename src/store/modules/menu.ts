@@ -33,6 +33,7 @@ import { ref } from 'vue'
 import { AppRouteRecord } from '@/types/router'
 import { getFirstMenuPath } from '@/utils'
 import { HOME_PAGE_PATH } from '@/router'
+import { applicationHomePath } from '@/utils/system-applications/client'
 
 /**
  * 菜单状态管理
@@ -54,7 +55,10 @@ export const useMenuStore = defineStore('menuStore', () => {
    */
   const setMenuList = (list: AppRouteRecord[]) => {
     menuList.value = list
-    setHomePath(HOME_PAGE_PATH || getFirstMenuPath(list))
+    const desired = applicationHomePath.value
+    const hasPath = (routes: AppRouteRecord[]): boolean =>
+      routes.some((route) => route.path === desired || (route.children && hasPath(route.children)))
+    setHomePath(hasPath(list) ? desired : getFirstMenuPath(list))
   }
 
   /**

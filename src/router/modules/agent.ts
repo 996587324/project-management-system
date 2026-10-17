@@ -54,6 +54,17 @@ export const agentRoutes: AppRouteRecord = {
       }
     },
     {
+      path: 'process-board',
+      name: 'ProcessBoardAgent',
+      component: '/agent/process-board',
+      meta: {
+        title: '产线工艺看板助手',
+        keepAlive: true,
+        isHide: true,
+        roles: ['R_SUPER', 'R_ADMIN', 'R_ENGINEER']
+      }
+    },
+    {
       path: 'model-providers',
       name: 'AgentModelProvider',
       component: '/agent/model-provider',

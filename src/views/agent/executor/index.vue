@@ -459,6 +459,28 @@
         '把 W1-R-01 移动到坐标 4.5，-1'
       ],
       confirmByReplyOnly: true
+    },
+    {
+      code: 'process-board',
+      label: '产线工艺看板',
+      assistantTitle: '产线工艺看板助手',
+      sidebarDescription: '工艺参数、流程与配置',
+      panelTitle: '产线工艺看板 Agent',
+      panelDescription:
+        '可查询区域、线体、参数、曲线、追溯和推送记录；回复“确认”后可新增及编辑卡片、公式、上下限、流程和布局。删除仍由人工处理。',
+      emptyDescription: '输入问题，查询实际工艺参数或生成配置调整计划。',
+      composerPlaceholder: '例如：查看装配区的工艺线体，或给温度参数设置上限并开启追溯',
+      suggestions: [
+        '查看各区域工艺线体和卡片数量',
+        '查询某条工艺线体的当前参数和超限情况',
+        '给参数卡片新增温度字段并配置上下限和追溯',
+        '把温度显示公式改成 x/10 并试算',
+        '查询最近一小时温度曲线和超限事件',
+        '把卡片改成每行显示两组参数',
+        '给温度超限配置微信接收人',
+        '查看工艺流程和最近配置变更记录'
+      ],
+      confirmByReplyOnly: true
     }
   ]
   const chatProfile = {

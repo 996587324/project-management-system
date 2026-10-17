@@ -106,8 +106,8 @@ export async function downloadResponseStream({
       suggestedName: fileName,
       types: [
         {
-          description: 'Excel 工作簿',
-          accept: { [contentType]: ['.xlsx'] }
+          description: contentType === 'text/csv' ? 'CSV 数据文件' : 'Excel 工作簿',
+          accept: { [contentType]: contentType === 'text/csv' ? ['.csv'] : ['.xlsx'] }
         }
       ]
     })

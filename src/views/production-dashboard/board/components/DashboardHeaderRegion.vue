@@ -124,7 +124,7 @@
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
     height: 100%;
-    border-bottom: 1px solid rgb(87 190 245 / 28%);
+    border-bottom: 1px solid var(--pd-border, rgb(87 190 245 / 28%));
   }
 
   .production-dashboard__brand {
@@ -139,16 +139,16 @@
     width: 32px;
     height: 32px;
     font-weight: 800;
-    color: #6df;
+    color: var(--pd-primary, #6df);
     letter-spacing: -3px;
-    border: 1px solid #5bd8ff;
-    box-shadow: 0 0 18px rgb(62 197 255 / 42%);
+    border: 1px solid var(--pd-border, #5bd8ff);
+    box-shadow: var(--pd-shadow, 0 0 18px rgb(62 197 255 / 42%));
   }
 
   .production-dashboard__brand p {
     margin: 0 0 3px;
     font-size: 9px;
-    color: #62cceb;
+    color: var(--pd-primary, #62cceb);
     letter-spacing: 1.7px;
   }
 
@@ -156,7 +156,7 @@
     margin: 0;
     font-size: 21px;
     font-weight: 600;
-    color: #f0faff;
+    color: var(--pd-text, #f0faff);
     letter-spacing: 1px;
   }
 
@@ -172,18 +172,18 @@
 
   .production-dashboard__line-select :deep(.el-select__wrapper) {
     min-height: 30px;
-    background: rgb(11 37 55 / 66%);
-    box-shadow: 0 0 0 1px rgb(110 177 211 / 38%) inset;
+    background: var(--pd-panel, rgb(11 37 55 / 66%));
+    box-shadow: 0 0 0 1px var(--pd-border, rgb(110 177 211 / 38%)) inset;
   }
 
   .production-dashboard__line-select :deep(.el-select__selected-item),
   .production-dashboard__line-select :deep(.el-select__placeholder) {
     font-size: 12px;
-    color: #b9e5f7;
+    color: var(--pd-text, #b9e5f7);
   }
 
   .production-dashboard__line-select :deep(.el-select__caret) {
-    color: #76d5f6;
+    color: var(--pd-primary, #76d5f6);
   }
 
   .production-dashboard__line-option {
@@ -200,13 +200,13 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    box-shadow: 0 0 8px currentcolor;
+    box-shadow: var(--pd-shadow, 0 0 8px currentcolor);
   }
 
   .production-dashboard__line-option strong {
     overflow: hidden;
     font-size: 13px;
-    color: #283e50;
+    color: var(--pd-muted, #283e50);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -216,7 +216,7 @@
   .production-dashboard__line-option em {
     font-size: 11px;
     font-style: normal;
-    color: #778b9b;
+    color: var(--pd-muted, #778b9b);
   }
 
   .production-dashboard__line-option small {
@@ -239,17 +239,17 @@
     margin-left: 5px;
     font-family: Consolas, monospace;
     font-size: 12px;
-    color: #9db8c9;
+    color: var(--pd-text, #9db8c9);
   }
 
   .production-dashboard__offline-badge {
     padding: 3px 7px;
     font-size: 11px;
-    color: #ffd08a;
+    color: var(--pd-warning, #ffd08a);
     white-space: nowrap;
-    background: rgb(150 88 13 / 20%);
-    border: 1px solid rgb(255 183 77 / 55%);
-    border-radius: 3px;
+    background: var(--pd-warning-bg, rgb(150 88 13 / 20%));
+    border: 1px solid var(--pd-warning, rgb(255 183 77 / 55%));
+    border-radius: var(--pd-radius, 3px);
   }
 
   .production-dashboard__fullscreen-button,
@@ -262,17 +262,17 @@
     height: 28px;
     padding: 0;
     font-size: 16px;
-    color: #a6e7ff;
+    color: var(--pd-primary, #a6e7ff);
     cursor: pointer;
-    background: rgb(31 102 139 / 14%);
-    border: 1px solid rgb(100 208 251 / 38%);
-    border-radius: 3px;
+    background: var(--pd-highlight, rgb(31 102 139 / 14%));
+    border: 1px solid var(--pd-border, rgb(100 208 251 / 38%));
+    border-radius: var(--pd-radius, 3px);
   }
 
   .production-dashboard__fullscreen-button:hover,
   .production-dashboard__icon-button:hover {
-    background: rgb(31 129 177 / 26%);
-    border-color: rgb(100 208 251 / 72%);
+    background: var(--pd-highlight, rgb(31 129 177 / 26%));
+    border-color: var(--pd-border, rgb(100 208 251 / 72%));
   }
 
   .production-dashboard__fullscreen-button:disabled,
@@ -297,12 +297,12 @@
     padding: 0 9px;
     font-size: 11px;
     line-height: 28px;
-    color: #a6e7ff;
+    color: var(--pd-primary, #a6e7ff);
     text-decoration: none;
     cursor: pointer;
-    background: rgb(31 102 139 / 14%);
-    border: 1px solid rgb(100 208 251 / 38%);
-    border-radius: 3px;
+    background: var(--pd-highlight, rgb(31 102 139 / 14%));
+    border: 1px solid var(--pd-border, rgb(100 208 251 / 38%));
+    border-radius: var(--pd-radius, 3px);
   }
 
   @media (width <= 1350px) {

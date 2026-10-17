@@ -4,7 +4,9 @@
       <div class="panel-header">
         <div>
           <div class="panel-title">Agent 平台绑定</div>
-          <div class="panel-subtitle">主平台优先调用，失败后按优先级使用备用平台；未绑定时使用全部已启用平台</div>
+          <div class="panel-subtitle"
+            >主平台优先调用，失败后按优先级使用备用平台；未绑定时使用全部已启用平台</div
+          >
         </div>
         <ElButton
           type="primary"
@@ -253,14 +255,14 @@
   }
 
   .panel-title {
-    color: var(--art-text-gray-900);
+    color: var(--art-gray-900);
     font-size: 16px;
     font-weight: 600;
   }
 
   .panel-subtitle {
     margin-top: 4px;
-    color: var(--art-text-gray-600);
+    color: var(--art-gray-600);
     font-size: 13px;
   }
 
@@ -271,7 +273,7 @@
   }
 
   .agent-cell small {
-    color: var(--art-text-gray-500);
+    color: var(--art-gray-500);
   }
 
   .full-width {

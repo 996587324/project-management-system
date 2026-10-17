@@ -26,21 +26,23 @@
  * @module utils/storage/storage-config
  * @author Art Design Pro Team
  */
+import { applicationStorageKey } from '@/utils/system-applications/client'
+
 export class StorageConfig {
   /** 当前应用版本 */
   static readonly CURRENT_VERSION = __APP_VERSION__
 
   /** 存储键前缀 */
-  static readonly STORAGE_PREFIX = 'sys-v'
+  static readonly STORAGE_PREFIX = applicationStorageKey('sys-v')
 
   /** 版本键名 */
-  static readonly VERSION_KEY = 'sys-version'
+  static readonly VERSION_KEY = applicationStorageKey('version')
 
   /** 主题键名（index.html中使用了，如果修改，需要同步修改） */
-  static readonly THEME_KEY = 'sys-theme'
+  static readonly THEME_KEY = applicationStorageKey('theme')
 
   /** 上次登录用户ID键名（用于判断是否为同一用户登录） */
-  static readonly LAST_USER_ID_KEY = 'sys-last-user-id'
+  static readonly LAST_USER_ID_KEY = applicationStorageKey('last-user-id')
 
   /** 跳过升级检查的版本 */
   static readonly SKIP_UPGRADE_VERSION = '1.0.0'

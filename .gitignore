@@ -323,4 +323,12 @@ dist/assets/validator-BBJAWQVj.js
 dist/assets/validator-CMwknWNc.js
 dist/assets/vnode-CTMXaMl4.js
 dist/assets/vnode-VVV_bCGo.js
+
+# B 前端独立构建产物，不提交到业务源码仓库。
+dist-b/
 dist/assets/yd-BrGqJ6Cs.png
+
+# 构建产物和本地验证目录不参与源码提交（已跟踪的历史产物另行处理）。
+/dist/
+/dist-b/
+/_verify_*/

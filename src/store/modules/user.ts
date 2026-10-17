@@ -44,6 +44,13 @@ import { useMenuStore } from './menu'
 import { StorageConfig } from '@/utils/storage/storage-config'
 import { getOAuth2LogoutUrl } from '@/utils/auth/oauth2'
 import { getApiUrl } from '@/utils/runtime-config'
+import { clearAvatar, loadAvatar } from '@/utils/user-avatar/resource'
+import { requestAvatarMetadata, type AvatarMetadata } from '@/api/user-profile'
+import {
+  applicationStorageKey,
+  cancelApplicationRequests,
+  getTokenPurpose
+} from '@/utils/system-applications/client'
 
 interface LogoutOptions {
   /** 用户主动退出时同步结束统一身份平台会话，便于切换账号。 */
@@ -74,9 +81,58 @@ export const useUserStore = defineStore(
     // 刷新令牌
     const refreshToken = ref('')
     let activityHeartbeatTimer: number | undefined
+    let avatarInfoRequest: AbortController | undefined
+
+    const setAvatar = (metadata: AvatarMetadata) => {
+      info.value = { ...info.value, ...metadata }
+    }
+
+    const refreshAvatar = async () => {
+      const token = accessToken.value
+      const userId = info.value.userId
+      const previousVersion = info.value.avatarVersion
+      if (!isLogin.value || !userId || getTokenPurpose(token) !== 'app' || avatarInfoRequest) return
+      const controller = new AbortController()
+      avatarInfoRequest = controller
+      try {
+        const metadata = await requestAvatarMetadata(token, 'info', undefined, controller.signal)
+        if (
+          token === accessToken.value &&
+          userId === info.value.userId &&
+          previousVersion === info.value.avatarVersion &&
+          isLogin.value
+        ) {
+          setAvatar(metadata)
+          await loadAvatar(String(userId), token, metadata.avatarVersion)
+        }
+      } catch {
+        // 头像同步失败不阻塞业务页面或登录流程。
+      } finally {
+        if (avatarInfoRequest === controller) avatarInfoRequest = undefined
+      }
+    }
+
+    watch(
+      [isLogin, accessToken, () => info.value.userId, () => info.value.avatarVersion],
+      ([loggedIn, token, userId, version]) => {
+        avatarInfoRequest?.abort()
+        avatarInfoRequest = undefined
+        if (loggedIn && getTokenPurpose(token) === 'app')
+          void loadAvatar(String(userId || ''), token, version)
+        else clearAvatar()
+      },
+      { immediate: true }
+    )
+    // A/B 共用后端头像；重新聚焦时刷新，不增加循环轮询。
+    window.addEventListener('focus', () => void refreshAvatar())
 
     const sendActivitySignal = (path: string, keepalive = false) => {
-      if (!accessToken.value || typeof window === 'undefined') return
+      if (
+        !accessToken.value ||
+        getTokenPurpose(accessToken.value) !== 'app' ||
+        typeof window === 'undefined'
+      )
+        return
       const token = accessToken.value.startsWith('Bearer ')
         ? accessToken.value
         : `Bearer ${accessToken.value}`
@@ -178,9 +234,7 @@ export const useUserStore = defineStore(
      */
     const setToken = (newAccessToken: string, newRefreshToken?: string) => {
       accessToken.value = newAccessToken
-      if (newRefreshToken) {
-        refreshToken.value = newRefreshToken
-      }
+      refreshToken.value = newRefreshToken ?? ''
     }
 
     /**
@@ -189,6 +243,19 @@ export const useUserStore = defineStore(
      * 如果是同一账号重新登录，保留工作台标签页
      */
     const logOut = (options: LogoutOptions = {}) => {
+      if (accessToken.value) {
+        void window
+          .fetch(getApiUrl('/api/system-applications/logout'), {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken.value}` },
+            keepalive: true
+          })
+          .catch(() => undefined)
+      }
+      cancelApplicationRequests()
+      clearAvatar()
+      avatarInfoRequest?.abort()
+      sessionStorage.removeItem('calmadmin:portal-token')
       sendActivitySignal('/api/user-activity/logout', true)
       stopActivityHeartbeat()
       // 保存当前用户 ID，用于下次登录时判断是否为同一用户
@@ -211,7 +278,7 @@ export const useUserStore = defineStore(
       refreshToken.value = ''
       // 注意：不清空工作台标签页，等下次登录时根据用户判断
       // 移除iframe路由缓存
-      sessionStorage.removeItem('iframeRoutes')
+      sessionStorage.removeItem(applicationStorageKey('iframe-routes'))
       // 清空主页路径
       useMenuStore().setHomePath('')
       // 重置路由状态
@@ -271,6 +338,8 @@ export const useUserStore = defineStore(
       getSettingState,
       getWorktabState,
       setUserInfo,
+      setAvatar,
+      refreshAvatar,
       setLoginStatus,
       setLanguage,
       setSearchHistory,
@@ -283,7 +352,7 @@ export const useUserStore = defineStore(
   },
   {
     persist: {
-      key: 'user',
+      key: applicationStorageKey('user'),
       storage: localStorage
     }
   }

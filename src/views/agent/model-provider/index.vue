@@ -12,7 +12,10 @@
         <div class="list-header">
           <div>
             <div class="section-title">统一模型平台配置</div>
-            <div class="section-subtitle">全系统 Agent 使用此处配置；请选择 Turing 或 DeepSeek，填写密钥后启用并设置 Agent 绑定。</div>
+            <div class="section-subtitle"
+              >全系统 Agent 使用此处配置；请选择 Turing 或 DeepSeek，填写密钥后启用并设置 Agent
+              绑定。</div
+            >
           </div>
         </div>
       </template>
@@ -87,7 +90,9 @@
             >
               测试
             </ElButton>
-            <ElButton link type="primary" :icon="Edit" @click="openEdit(asProvider(row))">编辑</ElButton>
+            <ElButton link type="primary" :icon="Edit" @click="openEdit(asProvider(row))"
+              >编辑</ElButton
+            >
           </template>
         </ElTableColumn>
       </ElTable>
@@ -259,14 +264,14 @@
   }
 
   .section-title {
-    color: var(--art-text-gray-900);
+    color: var(--art-gray-900);
     font-size: 16px;
     font-weight: 600;
   }
 
   .section-subtitle {
     margin-top: 4px;
-    color: var(--art-text-gray-600);
+    color: var(--art-gray-600);
     font-size: 13px;
   }
 
@@ -290,7 +295,7 @@
   }
 
   .primary-cell small {
-    color: var(--art-text-gray-500);
+    color: var(--art-gray-500);
   }
 
   .pagination-row {

@@ -133,6 +133,8 @@ declare module 'vue' {
     ElTree: typeof import('element-plus/es')['ElTree']
     ElUpload: typeof import('element-plus/es')['ElUpload']
     ElWatermark: typeof import('element-plus/es')['ElWatermark']
+    FieldCatalogDialog: typeof import('./../../components/business/historical-field-catalog/FieldCatalogDialog.vue')['default']
+    FieldCatalogManager: typeof import('./../../components/business/historical-field-catalog/FieldCatalogManager.vue')['default']
     HorizontalSubmenu: typeof import('./../../components/core/layouts/art-menus/art-horizontal-menu/widget/HorizontalSubmenu.vue')['default']
     LoginLeftView: typeof import('./../../components/core/views/login/LoginLeftView.vue')['default']
     MenuLayoutSettings: typeof import('./../../components/core/layouts/art-settings-panel/widget/MenuLayoutSettings.vue')['default']
@@ -145,8 +147,10 @@ declare module 'vue' {
     SettingHeader: typeof import('./../../components/core/layouts/art-settings-panel/widget/SettingHeader.vue')['default']
     SettingItem: typeof import('./../../components/core/layouts/art-settings-panel/widget/SettingItem.vue')['default']
     SidebarSubmenu: typeof import('./../../components/core/layouts/art-menus/art-sidebar-menu/widget/SidebarSubmenu.vue')['default']
+    SystemMcpAccess: typeof import('./../../components/business/system-mcp-access/index.vue')['default']
     ThemeSettings: typeof import('./../../components/core/layouts/art-settings-panel/widget/ThemeSettings.vue')['default']
     ThemeSvg: typeof import('./../../components/core/theme/theme-svg/index.vue')['default']
+    UserAvatarEditor: typeof import('./../../components/core/media/user-avatar-editor/index.vue')['default']
   }
   export interface GlobalDirectives {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']

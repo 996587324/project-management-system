@@ -17,7 +17,12 @@
   const route = useRoute()
   const requestedMode = String(route.query.mode || '').toLowerCase()
   const requestedDomain = String(route.query.domain || '')
-  const enabledDomains = ['project-management', 'edge-gateway', 'production-dashboard']
+  const enabledDomains = [
+    'project-management',
+    'edge-gateway',
+    'production-dashboard',
+    'process-board'
+  ]
   const initialMode = requestedMode === 'chat' ? 'Chat' : 'Work'
   const initialWorkAgentCode = enabledDomains.includes(requestedDomain)
     ? requestedDomain

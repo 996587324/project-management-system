@@ -154,6 +154,11 @@
               />
             </el-select>
           </el-form-item>
+          <el-form-item label="历史字段管理">
+            <el-button :disabled="!form.deviceMark" @click="catalogOpen = true"
+              >搜索 / 移除历史字段</el-button
+            >
+          </el-form-item>
           <el-form-item label="状态字段">
             <el-select
               v-model="form.statusSourcePath"
@@ -366,12 +371,18 @@
     />
     <PushRecordsDialog v-model="pushRecordsOpen" :line-code="lineCode" />
   </main>
+  <FieldCatalogDialog
+    v-model="catalogOpen"
+    :initial-model="form.modelMark || modelMark"
+    @changed="reloadSourceFields"
+  />
 </template>
 
 <script setup lang="ts">
   import { ref, watch } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { useRouter } from 'vue-router'
+  import FieldCatalogDialog from '@/components/business/historical-field-catalog/FieldCatalogDialog.vue'
   import FieldPushDialog from './components/FieldPushDialog.vue'
   import PushRecordsDialog from './components/PushRecordsDialog.vue'
   import { defaultDeviceCardPush, type DeviceCardPushConfig } from '@/api/device-card-push'
@@ -398,6 +409,15 @@
   } from '@/api/edge-dashboard'
 
   const router = useRouter()
+  const catalogOpen = ref(false)
+  async function reloadSourceFields() {
+    if (form.value.tenantMark && form.value.deviceMark) {
+      sourceFields.value = await fetchDashboardSourceFields(
+        form.value.tenantMark,
+        form.value.deviceMark
+      )
+    }
+  }
   const loading = ref(false)
   const saving = ref(false)
   const sourceLoading = ref(false)
@@ -688,8 +708,8 @@
   .device-card-config {
     min-height: 100%;
     padding: 24px;
-    color: #17233d;
-    background: #f5f7fb;
+    color: var(--el-text-color-primary);
+    background: var(--el-bg-color-page);
   }
 
   .device-card-config__header,
@@ -709,7 +729,7 @@
     margin: 0;
     font-size: 12px;
     font-weight: 700;
-    color: #4f7cff;
+    color: var(--el-color-primary);
     letter-spacing: 0.12em;
   }
 
@@ -721,7 +741,7 @@
   .device-card-config__header span,
   .device-card-config__fields p {
     font-size: 13px;
-    color: #7b8496;
+    color: var(--el-text-color-secondary);
   }
 
   .device-card-config__toolbar,
@@ -729,9 +749,9 @@
   .device-card-config__source,
   .device-card-config__fields {
     padding: 18px;
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 3px 14px rgb(30 58 110 / 6%);
+    background: var(--el-bg-color);
+    border-radius: var(--business-radius);
+    box-shadow: var(--business-card-shadow);
   }
 
   .device-card-config__toolbar {
@@ -754,7 +774,7 @@
   .device-card-config__table small {
     display: block;
     margin-top: 4px;
-    color: #8b95a8;
+    color: var(--el-text-color-secondary);
   }
 
   .device-card-config__form-grid {
@@ -774,8 +794,8 @@
   .device-card-config__source,
   .device-card-config__fields {
     margin-top: 18px;
-    border: 1px solid #edf0f6;
-    box-shadow: none;
+    border: 1px solid var(--el-border-color-lighter);
+    box-shadow: var(--business-card-shadow);
   }
 
   .device-card-config__source h3,
@@ -800,7 +820,7 @@
   .device-card-config__path {
     font-family: monospace;
     font-size: 12px;
-    color: #596780;
+    color: var(--el-text-color-regular);
   }
 
   @media (width <= 760px) {

@@ -1,16 +1,43 @@
 import { AppRouteRecordRaw } from '@/utils/router'
 
 /**
- * 静态路由配置（不需要权限就能访问的路由）
+ * 固定路由配置（公开页面，以及 requiresAppLogin 标识的个人页面）
  *
  * 属性说明：
  * isHideTab: true 表示不在标签页中显示
  *
  * 注意事项：
  * 1、path、name 不要和动态路由冲突，否则会导致路由冲突无法访问
- * 2、静态路由不管是否登录都可以访问
+ * 2、requiresAppLogin 页面仍验证当前系统登录，其余页面按公开路由处理
  */
 export const staticRoutes: AppRouteRecordRaw[] = [
+  {
+    path: '/account',
+    name: 'PersonalAccountLayout',
+    redirect: '/account/profile',
+    component: () => import('@views/index/index.vue'),
+    meta: { title: '个人中心', requiresAppLogin: true },
+    children: [
+      {
+        path: '/account/profile',
+        name: 'PersonalProfile',
+        component: () => import('@views/system/user-center/index.vue'),
+        meta: { title: '个人中心', requiresAppLogin: true }
+      }
+    ]
+  },
+  {
+    path: '/auth/entry',
+    name: 'ApplicationEntry',
+    component: () => import('@views/auth/application-entry.vue'),
+    meta: { title: '进入系统', isHideTab: true }
+  },
+  {
+    path: '/portal',
+    name: 'ApplicationPortal',
+    component: () => import('@views/auth/portal/index.vue'),
+    meta: { title: '系统控制台', isHideTab: true }
+  },
   // 不需要登录就能访问的路由示例
   // {
   //   path: '/welcome',

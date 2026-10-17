@@ -250,7 +250,7 @@
 
     span {
       font-size: 12px;
-      color: #8793a6;
+      color: var(--el-text-color-secondary);
     }
   }
 

@@ -177,7 +177,7 @@
 
   .external-mcp-page__subtitle {
     margin-top: 4px;
-    color: var(--art-text-gray-500);
+    color: var(--art-gray-500);
   }
 
   .external-mcp-page__description {

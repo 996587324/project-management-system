@@ -10,6 +10,7 @@ import AppConfig from '@/config'
 import NProgress from 'nprogress'
 import 'nprogress/nprogress.css'
 import i18n, { $t } from '@/locales'
+import { getApplicationName } from '@/utils/system-applications/client'
 
 /** 扩展的路由配置类型 */
 export type AppRouteRecordRaw = RouteRecordRaw & {
@@ -34,7 +35,7 @@ export const setPageTitle = (to: RouteLocationNormalized): void => {
   const { title } = to.meta
   if (title) {
     setTimeout(() => {
-      document.title = `${formatMenuTitle(String(title))} - ${AppConfig.systemInfo.name}`
+      document.title = `${formatMenuTitle(String(title))} - ${getApplicationName() || AppConfig.systemInfo.name}`
     }, 150)
   }
 }

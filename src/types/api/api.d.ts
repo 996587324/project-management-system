@@ -101,7 +101,8 @@ declare namespace Api {
       userId: number
       userName: string
       email: string
-      avatar?: string
+      avatar?: string | null
+      avatarVersion?: string | null
     }
   }
 

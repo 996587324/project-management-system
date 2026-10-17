@@ -52,6 +52,17 @@ import { fetchGetUserInfo } from '@/api/auth'
 import { ApiStatus } from '@/utils/http/status'
 import { isHttpError } from '@/utils/http/error'
 import { RouteRegistry, MenuProcessor, IframeRouteManager, RoutePermissionValidator } from '../core'
+import {
+  applicationHomePath,
+  getApplicationCode,
+  getTokenPurpose,
+  setApplicationName
+} from '@/utils/system-applications/client'
+import {
+  goToApplicationPortal,
+  redeemSystemBEntry,
+  startSystemBLogin
+} from '@/utils/system-applications/entry'
 
 // 路由注册器实例
 let routeRegistry: RouteRegistry | null = null
@@ -151,14 +162,55 @@ async function handleRouteGuard(
     NProgress.start()
   }
 
+  if (getApplicationCode() === 'B') {
+    if (to.path === '/portal') {
+      await goToApplicationPortal()
+      next(false)
+      return
+    }
+    if (to.path === '/auth/entry' && typeof to.query.ticket === 'string') {
+      const result = await redeemSystemBEntry(to.query.ticket, String(to.query.state || ''))
+      resetRouterState(0)
+      userStore.info = {}
+      userStore.setToken(result.token)
+      userStore.setLoginStatus(true)
+      next({ path: result.homePath || '/workbench', replace: true })
+      return
+    }
+    const anonymousPage = to.meta.publicReadOnly || ['/403', '/500'].includes(to.path)
+    if (
+      !anonymousPage &&
+      (to.path.startsWith('/auth/') || !userStore.isLogin || !userStore.accessToken)
+    ) {
+      await startSystemBLogin()
+      next(false)
+      return
+    }
+  }
+
   // 1. 检查登录状态
   if (!handleLoginStatus(to, userStore, next)) {
     return
   }
 
   // 2. 登录、注册和异常页属于静态路由，无需等待用户信息和动态菜单。
+  if (to.path === '/portal') {
+    if (!userStore.isLogin || !userStore.accessToken) {
+      next({ name: 'Login', query: { redirect: to.fullPath } })
+      return
+    }
+    next()
+    return
+  }
+  if (
+    (!isStaticRoute(to.path) || to.meta.requiresAppLogin) &&
+    getTokenPurpose(userStore.accessToken) !== 'app'
+  ) {
+    next({ path: '/portal', replace: true })
+    return
+  }
   // Token 失效跳转登录页时直接放行，也可避免延迟退出期间重复触发初始化请求。
-  if (isStaticRoute(to.path)) {
+  if (isStaticRoute(to.path) && !to.meta.requiresAppLogin) {
     setPageTitle(to)
     next()
     return
@@ -219,7 +271,7 @@ function handleLoginStatus(
   next: NavigationGuardNext
 ): boolean {
   // 已登录或访问登录页或静态路由，直接放行
-  if (to.path === RoutesAlias.Login || isStaticRoute(to.path)) {
+  if (to.path === RoutesAlias.Login || (isStaticRoute(to.path) && !to.meta.requiresAppLogin)) {
     return true
   }
 
@@ -254,6 +306,8 @@ function isProductionDashboardBoardPath(path: string): boolean {
 function isStaticRoute(path: string): boolean {
   const checkRoute = (routes: any[], targetPath: string): boolean => {
     return routes.some((route) => {
+      // 兜底 404 不能把尚未注册的业务路由误判成静态页面。
+      if (route.path.includes(':pathMatch')) return false
       // 处理动态路由参数匹配
       const routePath = route.path
       const pattern = routePath.replace(/:[^/]+/g, '[^/]+').replace(/\*/g, '.*')
@@ -295,7 +349,7 @@ async function handleDynamicRoutes(
     const menuList = await menuProcessor.getMenuList()
 
     // 3. 验证菜单数据
-    if (!menuProcessor.validateMenuList(menuList)) {
+    if (!menuProcessor.validateMenuList(menuList) && !to.meta.requiresAppLogin) {
       throw new Error('获取菜单列表失败，请重新登录')
     }
 
@@ -315,11 +369,9 @@ async function handleDynamicRoutes(
 
     // 8. 验证目标路径权限
     const { homePath } = useCommon()
-    const { path: validatedPath, hasPermission } = RoutePermissionValidator.validatePath(
-      to.path,
-      menuList,
-      homePath.value || '/'
-    )
+    const { path: validatedPath, hasPermission } = to.meta.requiresAppLogin
+      ? { path: to.path, hasPermission: true }
+      : RoutePermissionValidator.validatePath(to.path, menuList, homePath.value || '/')
 
     // 初始化成功，重置进行中标记
     routeInitInProgress = false
@@ -384,6 +436,10 @@ async function handleDynamicRoutes(
 async function fetchUserInfo(): Promise<void> {
   const userStore = useUserStore()
   const data = await fetchGetUserInfo()
+  const systemName = (data as Api.Auth.UserInfo & { systemName?: string }).systemName
+  if (systemName) setApplicationName(systemName)
+  const homePath = (data as Api.Auth.UserInfo & { homePath?: string }).homePath
+  if (homePath) applicationHomePath.value = homePath
   userStore.setUserInfo(data)
   // 检查并清理工作台标签页（如果是不同用户登录）
   userStore.checkAndClearWorktabs()
@@ -393,7 +449,7 @@ async function fetchUserInfo(): Promise<void> {
  * 重置路由相关状态
  */
 export function resetRouterState(delay: number): void {
-  setTimeout(() => {
+  const reset = () => {
     routeRegistry?.unregister()
     IframeRouteManager.getInstance().clear()
 
@@ -403,7 +459,9 @@ export function resetRouterState(delay: number): void {
 
     // 重置路由初始化状态，允许重新登录后再次初始化
     resetRouteInitState()
-  }, delay)
+  }
+  if (delay <= 0) reset()
+  else setTimeout(reset, delay)
 }
 
 /**

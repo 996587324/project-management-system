@@ -7,8 +7,22 @@
           <img class="absolute top-0 left-0 w-full h-50 object-cover" src="@imgs/user/bg.webp" />
           <img
             class="relative z-10 w-20 h-20 mt-30 mx-auto object-cover border-2 border-white rounded-full"
-            src="@imgs/user/avatar.webp"
+            :src="avatarSrc"
+            alt="当前用户头像"
+            @error="avatarLoadError"
           />
+          <div class="relative z-10 mt-3 flex justify-center gap-2">
+            <ElButton size="small" type="primary" @click="avatarEditorVisible = true"
+              >更换头像</ElButton
+            >
+            <ElButton
+              size="small"
+              :disabled="!userInfo.avatarVersion"
+              :loading="resettingAvatar"
+              @click="resetAvatar"
+              >恢复默认</ElButton
+            >
+          </div>
           <h2 class="mt-5 text-xl font-normal">{{ displayName }}</h2>
           <p class="mt-5 text-sm">{{ $t('systemPages.userCenter.profileSubtitle') }}</p>
 
@@ -47,7 +61,9 @@
       </div>
       <div class="flex-1 overflow-hidden max-md:w-full max-md:mt-3.5">
         <div class="art-card-sm">
-          <h1 class="p-4 text-xl font-normal border-b border-g-300">{{ $t('systemPages.userCenter.accountInfo') }}</h1>
+          <h1 class="p-4 text-xl font-normal border-b border-g-300">{{
+            $t('systemPages.userCenter.accountInfo')
+          }}</h1>
 
           <ElForm
             :model="form"
@@ -62,7 +78,11 @@
                 <ElInput v-model="form.realName" disabled />
               </ElFormItem>
               <ElFormItem :label="$t('systemPages.userCenter.gender')" prop="sex" class="ml-5">
-                <ElSelect v-model="form.sex" :placeholder="$t('systemPages.userCenter.select')" disabled>
+                <ElSelect
+                  v-model="form.sex"
+                  :placeholder="$t('systemPages.userCenter.select')"
+                  disabled
+                >
                   <ElOption
                     v-for="item in options"
                     :key="item.value"
@@ -98,7 +118,9 @@
         </div>
 
         <div class="art-card-sm my-5">
-          <h1 class="p-4 text-xl font-normal border-b border-g-300">{{ $t('systemPages.userCenter.changePassword') }}</h1>
+          <h1 class="p-4 text-xl font-normal border-b border-g-300">{{
+            $t('systemPages.userCenter.changePassword')
+          }}</h1>
 
           <ElForm
             ref="pwdFormRef"
@@ -126,7 +148,10 @@
               />
             </ElFormItem>
 
-            <ElFormItem :label="$t('systemPages.userCenter.confirmNewPassword')" prop="confirmPassword">
+            <ElFormItem
+              :label="$t('systemPages.userCenter.confirmNewPassword')"
+              prop="confirmPassword"
+            >
               <ElInput
                 v-model="pwdForm.confirmPassword"
                 type="password"
@@ -136,14 +161,23 @@
             </ElFormItem>
 
             <div class="flex-c justify-end [&_.el-button]:!w-27.5">
-              <ElButton type="primary" class="w-22.5" :loading="savingPwd" v-ripple @click="editPwd">
-                {{ isEditPwd ? $t('systemPages.userCenter.save') : $t('systemPages.userCenter.edit') }}
+              <ElButton
+                type="primary"
+                class="w-22.5"
+                :loading="savingPwd"
+                v-ripple
+                @click="editPwd"
+              >
+                {{
+                  isEditPwd ? $t('systemPages.userCenter.save') : $t('systemPages.userCenter.edit')
+                }}
               </ElButton>
             </div>
           </ElForm>
         </div>
       </div>
     </div>
+    <UserAvatarEditor v-model="avatarEditorVisible" />
   </div>
 </template>
 
@@ -152,13 +186,47 @@
   import { useUserStore } from '@/store/modules/user'
   import type { FormInstance, FormRules } from 'element-plus'
   import { useI18n } from 'vue-i18n'
+  import { ElMessage, ElMessageBox } from 'element-plus'
+  import UserAvatarEditor from '@/components/core/media/user-avatar-editor/index.vue'
+  import { avatarSrc, avatarLoadError } from '@/utils/user-avatar/resource'
+  import { requestAvatarMetadata } from '@/api/user-profile'
 
   defineOptions({ name: 'UserCenter' })
 
   const userStore = useUserStore()
   const userInfo = computed(() => userStore.getUserInfo)
+  const avatarEditorVisible = ref(false)
+  const resettingAvatar = ref(false)
+
+  async function resetAvatar() {
+    const token = userStore.accessToken
+    const userId = userStore.info.userId
+    try {
+      await ElMessageBox.confirm('恢复项目默认头像？', '恢复默认', { type: 'warning' })
+    } catch {
+      return
+    }
+    if (userStore.accessToken !== token || userStore.info.userId !== userId) return
+    resettingAvatar.value = true
+    try {
+      const metadata = await requestAvatarMetadata(token, 'reset')
+      if (userStore.accessToken !== token || userStore.info.userId !== userId || !userStore.isLogin)
+        return
+      userStore.setAvatar(metadata)
+      ElMessage.success('已恢复默认头像')
+    } catch (error) {
+      ElMessage.error(error instanceof Error ? error.message : '恢复默认失败')
+    } finally {
+      resettingAvatar.value = false
+    }
+  }
   const { t } = useI18n()
-  const displayName = computed(() => userInfo.value.userName || userInfo.value.accountKey || t('systemPages.userCenter.accountInfo'))
+  const displayName = computed(
+    () =>
+      userInfo.value.userName ||
+      userInfo.value.accountKey ||
+      t('systemPages.userCenter.accountInfo')
+  )
 
   const isEditPwd = ref(false)
   const savingPwd = ref(false)
@@ -206,7 +274,11 @@
     sex: [{ required: true, message: t('systemPages.userCenter.gender'), trigger: 'blur' }]
   })
 
-  const validateConfirmPassword = (_rule: any, value: string, callback: (error?: Error) => void) => {
+  const validateConfirmPassword = (
+    _rule: any,
+    value: string,
+    callback: (error?: Error) => void
+  ) => {
     if (value !== pwdForm.newPassword) {
       callback(new Error(t('systemPages.userCenter.passwordMismatch')))
       return
@@ -215,7 +287,9 @@
   }
 
   const pwdRules = reactive<FormRules>({
-    oldPassword: [{ required: true, message: t('systemPages.userCenter.inputCurrentPassword'), trigger: 'blur' }],
+    oldPassword: [
+      { required: true, message: t('systemPages.userCenter.inputCurrentPassword'), trigger: 'blur' }
+    ],
     newPassword: [
       { required: true, message: t('systemPages.userCenter.inputNewPassword'), trigger: 'blur' },
       { min: 6, message: t('systemPages.userCenter.passwordMin'), trigger: 'blur' }

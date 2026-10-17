@@ -35,6 +35,7 @@
 import { router } from '@/router'
 import { useUserStore } from '@/store/modules/user'
 import { StorageConfig } from '@/utils/storage/storage-config'
+import { applicationStorageKey } from '@/utils/system-applications/client'
 
 /**
  * 存储兼容性管理器
@@ -111,7 +112,10 @@ class StorageCompatibilityManager {
   private performSystemLogout(): void {
     setTimeout(() => {
       try {
-        localStorage.clear()
+        const prefix = applicationStorageKey('')
+        Object.keys(localStorage)
+          .filter((key) => key.startsWith(prefix))
+          .forEach((key) => localStorage.removeItem(key))
         useUserStore().logOut()
         router.push({ name: 'Login' })
         console.info('[Storage] 已执行系统登出')

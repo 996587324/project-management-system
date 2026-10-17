@@ -62,17 +62,8 @@ export class MenuProcessor {
    * 处理后端控制模式的菜单
    */
   private async processBackendMenu(): Promise<AppRouteRecord[]> {
-    const userStore = useUserStore()
     const list = await fetchGetMenuList()
-    const permissionKeys = userStore.info?.permissionKeys || []
-    if (permissionKeys.includes('*')) {
-      return this.filterEmptyMenus(list)
-    }
-
-    if (permissionKeys.length > 0) {
-      return this.filterEmptyMenus(this.filterMenuByPermissionKeys(list, permissionKeys))
-    }
-
+    // 服务端按当前系统及组件原始权限过滤。B 的自定义路由名不再重复参与权限过滤。
     return this.filterEmptyMenus(list)
   }
 
@@ -105,7 +96,10 @@ export class MenuProcessor {
       const filteredItem = { ...item }
 
       if (filteredItem.children?.length) {
-        filteredItem.children = this.filterMenuByPermissionKeys(filteredItem.children, permissionKeys)
+        filteredItem.children = this.filterMenuByPermissionKeys(
+          filteredItem.children,
+          permissionKeys
+        )
       }
 
       if (permissionKeys.includes(currentKey) || filteredItem.children?.length) {

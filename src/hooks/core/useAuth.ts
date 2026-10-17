@@ -62,7 +62,7 @@ export const useAuth = () => {
       ? (route.meta.authList as AuthItem[])
       : []
     const permissionKeys = info.value?.permissionKeys || []
-    const routeName = String(route.name || '')
+    const routeName = String(route.meta.permissionKey || route.name || '')
 
     if (permissionKeys.includes('*')) return true
 

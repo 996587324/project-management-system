@@ -5,7 +5,9 @@
         <div class="page-header">
           <div>
             <div class="section-title">PDA 设备</div>
-            <div class="section-subtitle">维护允许登录和扫码的 PDA 设备，停用后设备将无法继续使用。</div>
+            <div class="section-subtitle"
+              >维护允许登录和扫码的 PDA 设备，停用后设备将无法继续使用。</div
+            >
           </div>
           <ElButton type="primary" :icon="Plus" @click="openCreate">新增设备</ElButton>
         </div>
@@ -49,8 +51,12 @@
         <ElTableColumn prop="lastOnlineTime" label="最近在线" min-width="170" />
         <ElTableColumn label="操作" width="150" fixed="right">
           <template #default="{ row }">
-            <ElButton link type="primary" :icon="Edit" @click="openEdit(asDevice(row))">编辑</ElButton>
-            <ElButton link type="danger" :icon="Delete" @click="remove(asDevice(row))">删除</ElButton>
+            <ElButton link type="primary" :icon="Edit" @click="openEdit(asDevice(row))"
+              >编辑</ElButton
+            >
+            <ElButton link type="danger" :icon="Delete" @click="remove(asDevice(row))"
+              >删除</ElButton
+            >
           </template>
         </ElTableColumn>
       </ElTable>
@@ -117,7 +123,10 @@
   const saving = ref(false)
   const dialogVisible = ref(false)
   const formRef = ref<FormInstance>()
-  const query = reactive<{ keyword: string; enabled?: boolean }>({ keyword: '', enabled: undefined })
+  const query = reactive<{ keyword: string; enabled?: boolean }>({
+    keyword: '',
+    enabled: undefined
+  })
   const page = reactive<PdaPage<PdaDevice>>({ records: [], current: 1, size: 20, total: 0 })
   const form = reactive<PdaDeviceSaveParams>({
     deviceCode: '',
@@ -258,14 +267,14 @@
   }
 
   .section-title {
-    color: var(--art-text-gray-900);
+    color: var(--art-gray-900);
     font-size: 16px;
     font-weight: 600;
   }
 
   .section-subtitle {
     margin-top: 4px;
-    color: var(--art-text-gray-600);
+    color: var(--art-gray-600);
     font-size: 13px;
   }
 

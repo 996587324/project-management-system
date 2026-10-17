@@ -1053,11 +1053,16 @@
     padding: 10px 16px 12px;
     overflow: hidden;
     font-family: 'Microsoft YaHei', Arial, sans-serif;
-    color: #dcecf8;
+    color: var(--pd-text, #dcecf8);
     background:
-      linear-gradient(rgb(13 44 68 / 11%) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(13 44 68 / 11%) 1px, transparent 1px),
-      radial-gradient(circle at 50% -10%, #123d5b 0%, #071928 37%, #030b14 78%);
+      linear-gradient(var(--pd-grid, rgb(13 44 68 / 11%)) 1px, transparent 1px),
+      linear-gradient(90deg, var(--pd-grid, rgb(13 44 68 / 11%)) 1px, transparent 1px),
+      radial-gradient(
+        circle at 50% -10%,
+        var(--pd-page, #123d5b) 0%,
+        var(--pd-page, #071928) 37%,
+        var(--pd-page, #030b14) 78%
+      );
     background-size:
       32px 32px,
       32px 32px,
@@ -1093,15 +1098,15 @@
       gap: 10px;
       align-items: center;
       justify-content: center;
-      color: #dcecf8;
-      background: #071928;
+      color: var(--pd-text, #dcecf8);
+      background: var(--pd-page, #071928);
     }
 
     &__loading i {
       width: 34px;
       height: 34px;
-      border: 3px solid rgb(91 216 255 / 20%);
-      border-top-color: #5bd8ff;
+      border: 3px solid var(--pd-border, rgb(91 216 255 / 20%));
+      border-top-color: var(--pd-border, #5bd8ff);
       border-radius: 50%;
       animation: dashboard-loading-spin 0.85s linear infinite;
     }
@@ -1113,7 +1118,7 @@
 
     &__loading span {
       font-size: 11px;
-      color: #789bad;
+      color: var(--pd-muted, #789bad);
     }
   }
 

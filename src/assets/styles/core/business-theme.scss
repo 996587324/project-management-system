@@ -1,0 +1,33 @@
+// 后台业务卡片复用系统变量；生产监控看板（含公开页）保留独立深色风格。
+:root {
+  --business-radius: var(--custom-radius, 0.75rem);
+  --business-card-shadow: none;
+}
+
+[data-box-mode='shadow-mode'] {
+  --business-card-shadow: 0 2px 12px
+    color-mix(in srgb, var(--el-text-color-primary) 8%, transparent);
+}
+
+.layout-editor,
+.line-config-mask {
+  --pd-page: var(--el-bg-color-page);
+  --pd-grid: transparent;
+  --pd-panel: var(--el-bg-color);
+  --pd-panel-alt: var(--el-fill-color-light);
+  --pd-text: var(--el-text-color-primary);
+  --pd-muted: var(--el-text-color-secondary);
+  --pd-border: var(--el-border-color-lighter);
+  --pd-primary: var(--el-color-primary);
+  --pd-highlight: var(--el-color-primary-light-9);
+  --pd-success: var(--el-color-success);
+  --pd-warning: var(--el-color-warning);
+  --pd-danger: var(--el-color-danger);
+  --pd-success-bg: var(--el-color-success-light-9);
+  --pd-warning-bg: var(--el-color-warning-light-9);
+  --pd-danger-bg: var(--el-color-danger-light-9);
+  --pd-button-text: var(--el-color-white);
+  --pd-mask: var(--el-overlay-color-lighter);
+  --pd-radius: var(--business-radius);
+  --pd-shadow: var(--business-card-shadow);
+}

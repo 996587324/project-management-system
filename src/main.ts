@@ -9,6 +9,12 @@ import '@utils/sys/console.ts'                      // 控制台输出内容
 import { setupGlobDirectives } from './directives'
 import { setupErrorHandle } from './utils/sys/error-handle'
 import { setupUserOperationTracking } from './utils/user-operation'
+import {
+  configureApplicationClient,
+  getApplicationCode,
+  loadApplicationEntryInformation
+} from './utils/system-applications/client'
+import { useUserStore } from './store/modules/user'
 
 document.addEventListener(
   'touchstart',
@@ -18,6 +24,8 @@ document.addEventListener(
 
 const app = createApp(App)
 initStore(app)
+configureApplicationClient(getApplicationCode(), () => useUserStore().accessToken)
+void loadApplicationEntryInformation().catch(() => undefined)
 initRouter(app)
 setupGlobDirectives(app)
 setupErrorHandle(app)

@@ -220,7 +220,7 @@
     width: 100%;
     margin-top: 6px;
     line-height: 1.6;
-    color: #8793a6;
+    color: var(--el-text-color-secondary);
   }
 
   .push-notice {
@@ -236,6 +236,6 @@
     line-height: 1.6;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
-    background: #f5f7fa;
+    background: var(--el-fill-color-light);
   }
 </style>

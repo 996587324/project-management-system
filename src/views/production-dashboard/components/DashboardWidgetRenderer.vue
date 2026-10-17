@@ -6,8 +6,12 @@
         ><small>{{ sourceLabel }} · {{ periodLabel }}</small></div
       >
       <div class="dashboard-widget__actions">
-        <button type="button" title="查看明细数据" @click="emit('view-details', widget)">查看详情</button>
-        <span :class="{ loading }"><i />{{ loading ? '更新中' : `${widget.refreshSeconds}s` }}</span>
+        <button type="button" title="查看明细数据" @click="emit('view-details', widget)"
+          >查看详情</button
+        >
+        <span :class="{ loading }"
+          ><i />{{ loading ? '更新中' : `${widget.refreshSeconds}s` }}</span
+        >
       </div>
     </header>
 
@@ -514,9 +518,9 @@
     height: 100%;
     min-height: 0;
     overflow: hidden;
-    background: #0d2635;
-    border: 1px solid #21455a;
-    border-radius: 4px;
+    background: var(--pd-panel, #0d2635);
+    border: 1px solid var(--pd-border, #21455a);
+    border-radius: var(--pd-radius, 4px);
   }
 
   .dashboard-widget > header {
@@ -526,8 +530,8 @@
     justify-content: space-between;
     min-height: 42px;
     padding: 5px 10px;
-    color: #e7f5ff;
-    border-bottom: 1px solid #1d4256;
+    color: var(--pd-text, #e7f5ff);
+    border-bottom: 1px solid var(--pd-border, #1d4256);
   }
 
   .dashboard-widget > header div {
@@ -537,7 +541,7 @@
 
   .dashboard-widget > header small {
     margin-top: 2px;
-    color: #7899aa;
+    color: var(--pd-muted, #7899aa);
   }
 
   .dashboard-widget__actions,
@@ -546,33 +550,33 @@
     gap: 6px;
     align-items: center;
     font-size: 12px;
-    color: #7899aa;
+    color: var(--pd-muted, #7899aa);
   }
 
   .dashboard-widget > header > span i {
     width: 7px;
     height: 7px;
-    background: #20e5a3;
+    background: var(--pd-success, #20e5a3);
     border-radius: 50%;
   }
 
   .dashboard-widget > header > span.loading i {
-    background: #f6b852;
+    background: var(--pd-warning, #f6b852);
   }
 
   .dashboard-widget__actions > button {
     padding: 2px 4px;
-    color: #65d6f4;
+    color: var(--pd-primary, #65d6f4);
     font-size: 12px;
     line-height: 18px;
     cursor: pointer;
     background: transparent;
     border: 0;
-    border-radius: 3px;
+    border-radius: var(--pd-radius, 3px);
   }
 
   .dashboard-widget__actions > button:hover {
-    background: rgb(70 199 235 / 14%);
+    background: var(--pd-highlight, rgb(70 199 235 / 14%));
   }
 
   .dashboard-widget__chart {
@@ -585,16 +589,16 @@
     flex: 1;
     min-height: 0;
 
-    --el-table-bg-color: #0d2635;
-    --el-table-tr-bg-color: #0d2635;
-    --el-table-header-bg-color: #123247;
-    --el-table-row-hover-bg-color: #153a4c;
-    --el-table-current-row-bg-color: #153a4c;
-    --el-table-border-color: #21455a;
-    --el-table-text-color: #c3d7e2;
-    --el-table-header-text-color: #86aabd;
-    --el-fill-color-light: #153a4c;
-    --el-fill-color-lighter: #102d3d;
+    --el-table-bg-color: var(--pd-panel, #0d2635);
+    --el-table-tr-bg-color: var(--pd-panel, #0d2635);
+    --el-table-header-bg-color: var(--pd-panel, #123247);
+    --el-table-row-hover-bg-color: var(--pd-panel, #153a4c);
+    --el-table-current-row-bg-color: var(--pd-panel, #153a4c);
+    --el-table-border-color: var(--pd-border, #21455a);
+    --el-table-text-color: var(--pd-text, #c3d7e2);
+    --el-table-header-text-color: var(--pd-muted, #86aabd);
+    --el-fill-color-light: var(--pd-panel, #153a4c);
+    --el-fill-color-lighter: var(--pd-panel, #102d3d);
   }
 
   :deep(.dashboard-widget__table--rolling .el-table__body-wrapper .el-scrollbar__wrap) {
@@ -602,13 +606,13 @@
   }
 
   :deep(.dashboard-widget__table .el-table__body tr.current-row > td.el-table__cell) {
-    background: #153a4c;
+    background: var(--pd-panel, #153a4c);
   }
 
   .dashboard-widget__empty {
     position: absolute;
     inset: 43px 0 0;
-    background: #0d2635;
+    background: var(--pd-panel, #0d2635);
   }
 
   @media (resolution <= 1.1dppx) and (width >= 1440px) and (height >= 760px) {

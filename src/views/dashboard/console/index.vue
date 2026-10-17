@@ -11,7 +11,9 @@
               {{ card.tip }}
             </span>
           </div>
-          <div class="absolute top-0 bottom-0 right-5 m-auto size-12.5 rounded-xl flex-cc bg-theme/10">
+          <div
+            class="absolute top-0 bottom-0 right-5 m-auto size-12.5 rounded-xl flex-cc bg-theme/10"
+          >
             <ArtSvgIcon :icon="card.icon" class="text-xl text-theme" />
           </div>
         </div>
@@ -36,7 +38,9 @@
           <div class="art-card-header">
             <div class="title">
               <h4>整体项目进度</h4>
-              <p>当前平均进度 <span class="text-theme">{{ averageProgressText }}</span></p>
+              <p
+                >当前平均进度 <span class="text-theme">{{ averageProgressText }}</span></p
+              >
             </div>
           </div>
           <div class="progress-overview">
@@ -44,7 +48,10 @@
             <div class="progress-copy">
               <span>平均完成度</span>
               <strong>{{ averageProgressText }}</strong>
-              <p>待处理任务 {{ stats?.pendingTasks || 0 }} 个，已完成任务 {{ stats?.finishedTasks || 0 }} 个</p>
+              <p
+                >待处理任务 {{ stats?.pendingTasks || 0 }} 个，已完成任务
+                {{ stats?.finishedTasks || 0 }} 个</p
+              >
             </div>
           </div>
         </div>
@@ -74,10 +81,24 @@
               <p>最近创建或更新的项目动态</p>
             </div>
           </div>
-          <ElTable class="recent-project-table" :data="stats?.recentProjects || []" height="calc(100% - 42px)">
-            <ElTableColumn prop="projectName" label="项目名称" min-width="180" show-overflow-tooltip />
+          <ElTable
+            class="recent-project-table"
+            :data="stats?.recentProjects || []"
+            height="calc(100% - 42px)"
+          >
+            <ElTableColumn
+              prop="projectName"
+              label="项目名称"
+              min-width="180"
+              show-overflow-tooltip
+            />
             <ElTableColumn prop="projectType" label="类型" width="110" show-overflow-tooltip />
-            <ElTableColumn prop="contractCode" label="合同号" min-width="150" show-overflow-tooltip />
+            <ElTableColumn
+              prop="contractCode"
+              label="合同号"
+              min-width="150"
+              show-overflow-tooltip
+            />
             <ElTableColumn prop="progress" label="进度" width="180">
               <template #default="{ row }">
                 <ElProgress :percentage="Number(row.progress || 0)" :stroke-width="8" />
@@ -95,12 +116,14 @@
 
 <script setup lang="ts">
   import * as echarts from 'echarts'
+  import { useBusinessChartTheme } from '@/hooks/core/useBusinessChartTheme'
   import { fetchProjectDashboard } from '@/api/project-manage'
   import { useUserStore } from '@/store/modules/user'
 
   defineOptions({ name: 'Console' })
 
   const userStore = useUserStore()
+  const { applyTheme } = useBusinessChartTheme()
   const stats = ref<Api.ProjectManage.DashboardStats>()
   const statusChartRef = ref<HTMLDivElement>()
   const managerProjectChartRef = ref<HTMLDivElement>()
@@ -172,31 +195,35 @@
     if (!statusChartRef.value || !stats.value) return
 
     statusChart ||= echarts.init(statusChartRef.value)
-    statusChart.setOption({
-      tooltip: { trigger: 'item' },
-      legend: { bottom: 0 },
-      color: projectStatusDistribution.value.map((item) => item.color || '#1677ff'),
-      series: [
-        {
-          type: 'pie',
-          radius: ['48%', '70%'],
-          center: ['50%', '44%'],
-          avoidLabelOverlap: true,
-          label: {
-            show: true,
-            formatter: '{b}\n{c} 个',
-            color: '#4b5563',
-            lineHeight: 18
-          },
-          labelLine: {
-            show: true,
-            length: 12,
-            length2: 8
-          },
-          data: projectStatusDistribution.value
-        }
-      ]
-    }, true)
+    statusChart.setOption(
+      {
+        tooltip: { trigger: 'item' },
+        legend: { bottom: 0 },
+        color: projectStatusDistribution.value.map((item) => item.color || '#1677ff'),
+        series: [
+          {
+            type: 'pie',
+            radius: ['48%', '70%'],
+            center: ['50%', '44%'],
+            avoidLabelOverlap: true,
+            label: {
+              show: true,
+              formatter: '{b}\n{c} 个',
+              color: '#4b5563',
+              lineHeight: 18
+            },
+            labelLine: {
+              show: true,
+              length: 12,
+              length2: 8
+            },
+            data: projectStatusDistribution.value
+          }
+        ]
+      },
+      true
+    )
+    applyTheme(statusChart)
   }
 
   const renderManagerProjectChart = () => {
@@ -204,48 +231,62 @@
 
     const data = managerProjectStats.value
     managerProjectChart ||= echarts.init(managerProjectChartRef.value)
-    managerProjectChart.setOption({
-      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      legend: { top: 0 },
-      grid: { top: 54, left: 24, right: 24, bottom: data.length > 8 ? 70 : 32, containLabel: true },
-      color: ['#8b95a5', '#1677ff', '#22c55e'],
-      xAxis: {
-        type: 'category',
-        data: data.map((item) => item.managerName),
-        axisLabel: { interval: 0, rotate: data.length > 6 ? 30 : 0 }
-      },
-      yAxis: {
-        type: 'value',
-        minInterval: 1
-      },
-      dataZoom:
-        data.length > 8
-          ? [
-              { type: 'inside', start: 0, end: Math.min(100, Math.round((8 / data.length) * 100)) },
-              { type: 'slider', height: 18, bottom: 16 }
-            ]
-          : [],
-      series: [
-        {
-          name: '待启用',
-          type: 'bar',
-          barMaxWidth: 28,
-          data: data.map((item) => item.pendingProjects)
+    managerProjectChart.setOption(
+      {
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        legend: { top: 0 },
+        grid: {
+          top: 54,
+          left: 24,
+          right: 24,
+          bottom: data.length > 8 ? 70 : 32,
+          containLabel: true
         },
-        {
-          name: '进行中',
-          type: 'bar',
-          barMaxWidth: 28,
-          data: data.map((item) => item.runningProjects)
+        color: ['#8b95a5', '#1677ff', '#22c55e'],
+        xAxis: {
+          type: 'category',
+          data: data.map((item) => item.managerName),
+          axisLabel: { interval: 0, rotate: data.length > 6 ? 30 : 0 }
         },
-        {
-          name: '已完成',
-          type: 'bar',
-          barMaxWidth: 28,
-          data: data.map((item) => item.finishedProjects)
-        }
-      ]
-    }, true)
+        yAxis: {
+          type: 'value',
+          minInterval: 1
+        },
+        dataZoom:
+          data.length > 8
+            ? [
+                {
+                  type: 'inside',
+                  start: 0,
+                  end: Math.min(100, Math.round((8 / data.length) * 100))
+                },
+                { type: 'slider', height: 18, bottom: 16 }
+              ]
+            : [],
+        series: [
+          {
+            name: '待启用',
+            type: 'bar',
+            barMaxWidth: 28,
+            data: data.map((item) => item.pendingProjects)
+          },
+          {
+            name: '进行中',
+            type: 'bar',
+            barMaxWidth: 28,
+            data: data.map((item) => item.runningProjects)
+          },
+          {
+            name: '已完成',
+            type: 'bar',
+            barMaxWidth: 28,
+            data: data.map((item) => item.finishedProjects)
+          }
+        ]
+      },
+      true
+    )
+    applyTheme(managerProjectChart)
   }
 
   const formatDate = (value?: string) => {

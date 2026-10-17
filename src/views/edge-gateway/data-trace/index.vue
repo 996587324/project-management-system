@@ -214,6 +214,7 @@
   import { Plus, Refresh, Setting } from '@element-plus/icons-vue'
   import { ElMessage, ElMessageBox, type ElTree } from 'element-plus'
   import { echarts, type EChartsOption } from '@/plugins/echarts'
+  import { useBusinessChartTheme } from '@/hooks/core/useBusinessChartTheme'
   import {
     deleteDataTraceRule,
     fetchDataTraceRules,
@@ -240,6 +241,7 @@
   const treeRef = ref<InstanceType<typeof ElTree>>()
   const chartRefs = new Map<string, HTMLElement>()
   const charts = new Map<string, echarts.ECharts>()
+  const { applyTheme } = useBusinessChartTheme()
   const tree = ref<EdgeDataTraceTreeNode[]>([])
   const rules = ref<EdgeDataTraceRule[]>([])
   const devices = ref<EdgeDevice[]>([])
@@ -404,6 +406,7 @@
         }))
       }
       chart.setOption(option, true)
+      applyTheme(chart)
       chart.on('dblclick', (params: { seriesId?: string }) => {
         const id = Number(params.seriesId)
         if (id) openDetail([id])
@@ -573,10 +576,11 @@
 
   .trace-tree-card,
   .trace-chart-card {
+    box-shadow: var(--business-card-shadow);
     padding: 16px;
     background: var(--el-bg-color);
     border: 1px solid var(--el-border-color-lighter);
-    border-radius: 8px;
+    border-radius: var(--business-radius);
   }
 
   .panel-title {

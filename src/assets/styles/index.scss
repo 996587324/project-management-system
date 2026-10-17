@@ -12,6 +12,7 @@
 
 // 暗黑主题样式优化
 @use './core/dark.scss';
+@use './core/business-theme.scss';
 
 // 路由切换动画
 @use './core/router-transition';

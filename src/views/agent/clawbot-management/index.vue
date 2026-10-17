@@ -264,7 +264,7 @@
 
   .clawbot-admin__subtitle {
     margin-top: 5px;
-    color: var(--art-text-gray-500);
+    color: var(--art-gray-500);
   }
 
   .clawbot-admin__filters {

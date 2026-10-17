@@ -29,6 +29,8 @@ import { RouteRecordRaw } from 'vue-router'
 export interface RouteMeta extends Record<string | number | symbol, unknown> {
   /** 路由标题 */
   title: string
+  /** 复用组件的原始业务权限标识，与可自定义的路由名称分开。 */
+  permissionKey?: string
   /** 路由图标 */
   icon?: string
   /** 是否显示徽章 */
@@ -62,6 +64,8 @@ export interface RouteMeta extends Record<string | number | symbol, unknown> {
   isFullPage?: boolean
   /** 是否为无需登录的公开只读看板 */
   publicReadOnly?: boolean
+  /** 个人页面免业务菜单授权，但必须持有有效的当前系统登录会话。 */
+  requiresAppLogin?: boolean
   /** 是否为权限按钮行 */
   isAuthButton?: boolean
   /** 权限标识 */

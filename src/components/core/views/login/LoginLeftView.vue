@@ -3,7 +3,7 @@
   <div class="login-left-view">
     <div class="logo">
       <ArtLogo class="icon" size="46" />
-      <h1 class="title">{{ AppConfig.systemInfo.name }}</h1>
+      <h1 class="title">{{ applicationDisplayName }}</h1>
     </div>
 
     <div class="left-img">
@@ -70,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-  import AppConfig from '@/config'
+  import { applicationDisplayName } from '@/utils/system-applications/client'
   import loginSvg from '@imgs/svg/login.svg'
   import { themeAnimation } from '@/utils/ui/animation'
 

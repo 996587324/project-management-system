@@ -12,9 +12,28 @@
       </template>
 
       <div class="toolbar">
-        <ElInput v-model="query.barcode" clearable :prefix-icon="Search" placeholder="产品条码" @keyup.enter="search" @clear="search" />
-        <ElInput v-model="query.deviceCode" clearable placeholder="设备编号" @keyup.enter="search" @clear="search" />
-        <ElInput v-model="query.userId" clearable placeholder="用户ID" @keyup.enter="search" @clear="search" />
+        <ElInput
+          v-model="query.barcode"
+          clearable
+          :prefix-icon="Search"
+          placeholder="产品条码"
+          @keyup.enter="search"
+          @clear="search"
+        />
+        <ElInput
+          v-model="query.deviceCode"
+          clearable
+          placeholder="设备编号"
+          @keyup.enter="search"
+          @clear="search"
+        />
+        <ElInput
+          v-model="query.userId"
+          clearable
+          placeholder="用户ID"
+          @keyup.enter="search"
+          @clear="search"
+        />
         <ElSelect v-model="query.success" placeholder="全部结果" clearable @change="search">
           <ElOption label="成功" :value="true" />
           <ElOption label="失败" :value="false" />
@@ -43,7 +62,9 @@
         <ElTableColumn prop="scanTime" label="扫码时间" min-width="170" />
         <ElTableColumn label="操作" width="90" fixed="right">
           <template #default="{ row }">
-            <ElButton link type="primary" :icon="View" @click="openDetail(asScanLog(row))">详情</ElButton>
+            <ElButton link type="primary" :icon="View" @click="openDetail(asScanLog(row))"
+              >详情</ElButton
+            >
           </template>
         </ElTableColumn>
       </ElTable>
@@ -81,12 +102,7 @@
 <script setup lang="ts">
   import { Refresh, Search, View } from '@element-plus/icons-vue'
   import { ElMessage } from 'element-plus'
-  import {
-    fetchPdaScanLog,
-    fetchPdaScanLogPage,
-    type PdaPage,
-    type PdaScanLog
-  } from '@/api/pda'
+  import { fetchPdaScanLog, fetchPdaScanLogPage, type PdaPage, type PdaScanLog } from '@/api/pda'
 
   defineOptions({ name: 'PdaScanLog' })
 
@@ -179,14 +195,14 @@
   }
 
   .section-title {
-    color: var(--art-text-gray-900);
+    color: var(--art-gray-900);
     font-size: 16px;
     font-weight: 600;
   }
 
   .section-subtitle {
     margin-top: 4px;
-    color: var(--art-text-gray-600);
+    color: var(--art-gray-600);
     font-size: 13px;
   }
 

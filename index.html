@@ -29,7 +29,10 @@
             return
           }
 
-          const themeType = localStorage.getItem('sys-theme')
+          const code = document.documentElement.dataset.application || 'A'
+          const cachedName = localStorage.getItem(`calmadmin:${code}:display-name`)
+          if (cachedName?.trim()) document.title = cachedName.trim()
+          const themeType = localStorage.getItem(`calmadmin:${code}:theme`)
           if (themeType === 'dark') {
             document.documentElement.classList.add('dark')
           }

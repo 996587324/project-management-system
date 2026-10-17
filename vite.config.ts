@@ -14,11 +14,13 @@ import tailwindcss from '@tailwindcss/vite'
 export default ({ mode }: { mode: string }) => {
   const root = process.cwd()
   const env = loadEnv(mode, root)
+  const systemB = mode === 'system-b'
   const { VITE_VERSION, VITE_PORT, VITE_BASE_URL, VITE_API_PROXY_URL, VITE_WS_PROXY_URL } = env
 
   return defineConfig({
     define: {
-      __APP_VERSION__: JSON.stringify(VITE_VERSION)
+      __APP_VERSION__: JSON.stringify(VITE_VERSION),
+      'import.meta.env.VITE_APP_CODE': JSON.stringify(systemB ? 'B' : 'A')
     },
     base: VITE_BASE_URL,
     server: {
@@ -50,7 +52,7 @@ export default ({ mode }: { mode: string }) => {
     },
     build: {
       target: 'es2015',
-      outDir: 'dist',
+      outDir: systemB ? 'dist-b' : 'dist',
       chunkSizeWarningLimit: 2000,
       minify: 'terser',
       terserOptions: {
@@ -68,6 +70,15 @@ export default ({ mode }: { mode: string }) => {
       }
     },
     plugins: [
+      {
+        name: 'system-b-entry',
+        transformIndexHtml(html) {
+          const tagged = html.replace('<html>', `<html data-application="${systemB ? 'B' : 'A'}">`)
+          return systemB
+            ? tagged.replace('<title>智能制造管理系统</title>', '<title>正在加载…</title>')
+            : tagged
+        }
+      },
       vue(),
       tailwindcss(),
       // 自动按需导入 API

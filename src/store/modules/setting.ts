@@ -39,6 +39,7 @@ import { setElementThemeColor } from '@/utils/ui'
 import { useCeremony } from '@/hooks/core/useCeremony'
 import { StorageConfig } from '@/utils'
 import { SETTING_DEFAULT_CONFIG } from '@/config/setting'
+import { applicationStorageKey } from '@/utils/system-applications/client'
 
 /**
  * 系统设置状态管理
@@ -443,7 +444,7 @@ export const useSettingStore = defineStore(
   },
   {
     persist: {
-      key: 'setting',
+      key: applicationStorageKey('setting'),
       storage: localStorage
     }
   }
