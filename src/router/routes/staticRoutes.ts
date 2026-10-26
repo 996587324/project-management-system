@@ -12,6 +12,12 @@ import { AppRouteRecordRaw } from '@/utils/router'
  */
 export const staticRoutes: AppRouteRecordRaw[] = [
   {
+    path: '/public/hourly-production/:boardCode',
+    name: 'PublicHourlyProduction',
+    component: () => import('@views/hourly-production/board/index.vue'),
+    meta: { title: '小时产量看板', isHideTab: true, isFullPage: true, publicReadOnly: true }
+  },
+  {
     path: '/account',
     name: 'PersonalAccountLayout',
     redirect: '/account/profile',

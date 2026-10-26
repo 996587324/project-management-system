@@ -196,9 +196,22 @@
             ></div
           >
           <el-button @click="form.devices.push(emptyBinding())">新增关联设备</el-button>
-          <p class="tip">工艺流程和卡片拖动布局在“流程 / 布局”入口编辑；字段可跨设备绑定。</p>
+          <p class="tip"
+            >工艺流程和卡片拖动布局在“流程 /
+            布局”入口编辑；下属卡片的字段和公式变量只能选择这里关联的设备。</p
+          >
         </template>
         <template v-if="form.kind === 'Card' || form.kind === 'Line'">
+          <el-alert
+            v-if="form.kind === 'Card'"
+            :closable="false"
+            :type="cardDeviceIssues.length ? 'warning' : 'info'"
+            :title="
+              cardDeviceIssues.length
+                ? `存在不在线体范围内的绑定：${cardDeviceIssues.map((issue) => issue.label).join('、')}。原有绑定保留，新增或改绑需选择线体内设备。`
+                : '字段及公式变量仅可选择所属线体已关联、且当前账号已授权的设备。固定文本和固定数值不受限制。'
+            "
+          />
           <el-divider>{{
             form.kind === 'Line'
               ? '线体独立曲线字段（无需展示在卡片中）'
@@ -233,7 +246,13 @@
         ><el-button type="primary" :loading="saving" @click="save">保存配置</el-button></template
       >
     </el-dialog>
-    <ParameterFieldEditor v-model="fieldDialog" :value="fieldDraft" @save="applyField" />
+    <ParameterFieldEditor
+      v-model="fieldDialog"
+      :value="fieldDraft"
+      :process-line-id="form.kind === 'Card' ? form.parentId : undefined"
+      :allowed-devices="form.kind === 'Card' ? cardAllowedDevices : undefined"
+      @save="applyField"
+    />
   </section>
 </template>
 
@@ -253,6 +272,11 @@
   } from '@/api/process-board'
   import ParameterFieldEditor from '../components/ParameterFieldEditor.vue'
   import SourceBindingEditor from '../components/SourceBindingEditor.vue'
+  import {
+    processDeviceIssues,
+    processDeviceReferences,
+    processDeviceKey
+  } from '../components/device-scope'
 
   const router = useRouter()
   const loading = ref(false)
@@ -262,6 +286,17 @@
   const parentFilter = ref<number>()
   const dialog = ref(false)
   const form = ref(emptyDefinition('Region'))
+  const originalDefinition = ref<ProcessDefinition>()
+  const cardAllowedDevices = computed(
+    () =>
+      definitions.value.find((item) => item.kind === 'Line' && item.id === form.value.parentId)
+        ?.devices || []
+  )
+  const cardDeviceIssues = computed(() =>
+    form.value.kind === 'Card'
+      ? processDeviceIssues(form.value, cardAllowedDevices.value, originalDefinition.value)
+      : []
+  )
   const fieldDialog = ref(false)
   const fieldDraft = ref(emptyField())
   const fieldIndex = ref(-1)
@@ -315,6 +350,7 @@
 
   function open(row?: ProcessDefinition) {
     if (kind.value === 'Settings') return
+    originalDefinition.value = row ? JSON.parse(JSON.stringify(row)) : undefined
     form.value = row
       ? JSON.parse(JSON.stringify(row))
       : emptyDefinition(kind.value, parentFilter.value || 0)
@@ -323,6 +359,34 @@
   }
 
   async function save() {
+    const invalid = cardDeviceIssues.value.find((issue) => !issue.legacy)
+    if (invalid) {
+      ElMessage.warning(
+        `${invalid.label}的设备未关联到所属线体，请重新选择或先在线体配置中关联设备`
+      )
+      return
+    }
+    if (form.value.kind === 'Line' && originalDefinition.value) {
+      const remaining = new Set(
+        form.value.devices.filter((source) => source.fixedValue == null).map(processDeviceKey)
+      )
+      const removed = new Set(
+        originalDefinition.value.devices
+          .filter((source) => source.fixedValue == null && !remaining.has(processDeviceKey(source)))
+          .map(processDeviceKey)
+      )
+      const referenced = definitions.value
+        .filter((item) => item.kind === 'Card' && item.parentId === form.value.id)
+        .flatMap((card) =>
+          processDeviceReferences(card)
+            .filter((ref) => removed.has(processDeviceKey(ref.source)))
+            .map((ref) => `卡片“${card.name}”${ref.label}`)
+        )
+      if (referenced.length) {
+        ElMessage.warning(`不能移除正在使用的设备，请先调整：${referenced.slice(0, 4).join('；')}`)
+        return
+      }
+    }
     if (!form.value.code || !form.value.name) {
       ElMessage.warning('请填写编码和名称')
       return
@@ -392,46 +456,56 @@
 
 <style scoped lang="scss">
   .process-config {
-    color: var(--el-text-color-primary);
-    box-shadow: var(--business-card-shadow);
     padding: 24px;
+    color: var(--el-text-color-primary);
     background: var(--el-bg-color);
     border-radius: var(--business-radius);
+    box-shadow: var(--business-card-shadow);
   }
+
   header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
     margin-bottom: 20px;
+
     h2 {
       margin: 0 0 8px;
     }
+
     p {
-      color: var(--el-text-color-secondary);
       margin: 0;
+      color: var(--el-text-color-secondary);
     }
   }
+
   .toolbar {
     display: flex;
     gap: 12px;
     margin-bottom: 16px;
+
     .el-select {
       width: 320px;
     }
   }
+
   .device-row {
     display: flex;
     gap: 10px;
     margin-bottom: 12px;
   }
+
   .tip {
     color: var(--el-text-color-secondary);
   }
+
   .fields-table {
     margin-top: 16px;
   }
+
   .settings-form {
     max-width: 720px;
+
     .el-alert {
       margin-bottom: 24px;
     }

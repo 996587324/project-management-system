@@ -2,11 +2,13 @@
   <ElConfigProvider size="default" :locale="locales[language]" :z-index="3000">
     <RouterView></RouterView>
     <AgentFloatingChat />
+    <SessionIdleWarning />
   </ElConfigProvider>
 </template>
 
 <script setup lang="ts">
   import AgentFloatingChat from '@/components/business/agent-floating-chat/index.vue'
+  import SessionIdleWarning from '@/components/business/session-idle-warning/index.vue'
   import { useUserStore } from './store/modules/user'
   import zh from 'element-plus/es/locale/lang/zh-cn'
   import en from 'element-plus/es/locale/lang/en'

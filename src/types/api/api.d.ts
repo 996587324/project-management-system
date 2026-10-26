@@ -575,21 +575,25 @@ declare namespace Api {
     }
 
     interface EmailSendRequest {
+      recipientUserIds: string[]
+      ccUserIds: string[]
+      idempotencyKey: string
+      confirm: boolean
       conversationId?: number
       sourceToolCallId?: number
       userId?: number | string
-      toEmails: string[]
-      ccEmails: string[]
       subject: string
       body: string
     }
 
     interface EmailSendResult {
+      taskId: number
+      status: string
       success: boolean
       message: string
       toEmails: string[]
       ccEmails: string[]
-      sendTime: string
+      sendTime?: string | null
     }
   }
 

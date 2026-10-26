@@ -111,7 +111,9 @@
           <div class="dashboard-config__section-head"
             ><div
               ><h2>模型业务名称</h2
-              ><p>将接入模型标识映射为看板中的业务名称；删除映射不会影响已绑定数据。</p></div
+              ><p
+                >自动汇总已上报模型，补充业务名称后保存；已有预配置保留，设备统计遵循当前数据授权。</p
+              ></div
             ><div class="dashboard-config__actions"
               ><el-button
                 :loading="exportingModelConfiguration"
@@ -129,31 +131,83 @@
               ><el-button type="primary" @click="openMappingDialog()">新增映射</el-button></div
             ></div
           >
-          <el-table :data="mappings" border>
-            <el-table-column prop="modelMark" label="模型标识" min-width="180" />
-            <el-table-column prop="displayName" label="显示名称" min-width="190" />
+          <div class="dashboard-config__mapping-filters">
+            <el-input v-model="mappingKeyword" clearable placeholder="搜索模型标识 / 显示名称" />
+            <el-select v-model="mappingStatus" aria-label="映射配置状态">
+              <el-option label="全部模型" value="all" />
+              <el-option label="未配置" value="unconfigured" />
+              <el-option label="已配置" value="configured" />
+            </el-select>
+            <span>共 {{ filteredMappings.length }} 个模型</span>
+          </div>
+          <el-table
+            :data="pagedMappings"
+            row-key="modelMark"
+            border
+            empty-text="暂无符合条件的模型，上报数据后可点击顶部刷新"
+          >
+            <el-table-column label="模型标识" min-width="190">
+              <template #default="{ row }">{{
+                row.unclassified ? '未提供模型标识' : row.modelMark
+              }}</template>
+            </el-table-column>
+            <el-table-column label="显示名称" min-width="180">
+              <template #default="{ row }">{{ row.displayName || '待配置' }}</template>
+            </el-table-column>
+            <el-table-column label="映射配置" width="100">
+              <template #default="{ row }"
+                ><el-tag :type="row.configured ? 'success' : 'warning'">{{
+                  row.configured ? '已配置' : '未配置'
+                }}</el-tag></template
+              >
+            </el-table-column>
+            <el-table-column prop="deviceCount" label="关联设备（授权范围）" width="170" />
+            <el-table-column label="最近接收时间" min-width="180">
+              <template #default="{ row }">{{
+                row.latestReceiveTime ? row.latestReceiveTime.replace('T', ' ').slice(0, 19) : '—'
+              }}</template>
+            </el-table-column>
             <el-table-column label="建议类别" width="130"
               ><template #default="{ row }">{{
-                equipmentTypeLabel(row.equipmentType)
+                row.configured ? equipmentTypeLabel(row.equipmentType) : '—'
               }}</template></el-table-column
             >
-            <el-table-column label="状态" width="100"
+            <el-table-column label="启用状态" width="100"
               ><template #default="{ row }"
-                ><el-tag :type="row.enabled ? 'success' : 'info'">{{
+                ><el-tag v-if="row.configured" :type="row.enabled ? 'success' : 'info'">{{
                   row.enabled ? '启用' : '停用'
-                }}</el-tag></template
+                }}</el-tag
+                ><span v-else>—</span></template
               ></el-table-column
             >
-            <el-table-column prop="sort" label="排序" width="90" />
+            <el-table-column label="排序" width="80"
+              ><template #default="{ row }">{{
+                row.configured ? row.sort : '—'
+              }}</template></el-table-column
+            >
             <el-table-column label="操作" width="130" fixed="right"
               ><template #default="{ row }"
-                ><el-button link type="primary" @click="openMappingDialog(row)">编辑</el-button
-                ><el-button link type="danger" @click="removeMapping(row)"
+                ><el-button
+                  link
+                  type="primary"
+                  :disabled="row.unclassified && !row.configured"
+                  @click="openMappingDialog(row)"
+                  >{{ row.configured ? '编辑' : '配置映射' }}</el-button
+                ><el-button v-if="row.configured" link type="danger" @click="removeMapping(row)"
                   >删除</el-button
                 ></template
               ></el-table-column
             >
           </el-table>
+          <el-pagination
+            v-model:current-page="mappingPage"
+            :page-size="20"
+            :total="filteredMappings.length"
+            layout="prev, pager, next"
+          />
+          <p v-if="mappingRows.some((row) => row.unclassified)"
+            >未分类设备需要在上报数据中补充 modelMark，才能关联到具体模型。</p
+          >
         </section>
       </el-tab-pane>
 
@@ -358,11 +412,22 @@
       <el-form label-position="top"
         ><div class="dashboard-config__form-grid">
           <el-form-item label="模型标识" required
-            ><el-input
-              v-model.trim="mappingForm.modelMark"
+            ><el-select
+              v-model="mappingForm.modelMark"
               :disabled="Boolean(mappingForm.id)"
-              placeholder="例如 CHUANPXX_JQR"
-          /></el-form-item>
+              filterable
+              allow-create
+              default-first-option
+              class="w-full"
+              placeholder="选择已上报模型，也可输入标识预配置"
+              @change="selectMappingModel"
+              ><el-option
+                v-for="model in selectableMappingModels"
+                :key="model.modelMark"
+                :value="model.modelMark"
+                :label="`${model.displayName || model.modelMark}（${model.modelMark} · ${model.deviceCount} 台${model.configured ? ' · 已配置' : ''}）`"
+              /> </el-select
+          ></el-form-item>
           <el-form-item label="显示名称" required
             ><el-input v-model.trim="mappingForm.displayName" placeholder="例如 穿片下线机器人"
           /></el-form-item>
@@ -479,12 +544,13 @@
   import { useRouter } from 'vue-router'
   import { useUserStore } from '@/store/modules/user'
   import { downloadResponseStream } from '@/utils/file/stream-download'
+  import { sourceCatalogApi, type CatalogModel } from '@/api/source-catalog'
+  import { loadReportedModels, mergeModelMappings, modelIdentity } from './model-mappings'
   import DashboardDeviceBindingDialog from '@/views/production-dashboard/components/DashboardDeviceBindingDialog.vue'
   import DashboardLineOutputBindingDialog from '@/views/production-dashboard/components/DashboardLineOutputBindingDialog.vue'
   import DashboardRobotBindingDialog from '@/views/production-dashboard/components/DashboardRobotBindingDialog.vue'
   import DashboardWidgetConfigDialog from '@/views/production-dashboard/components/DashboardWidgetConfigDialog.vue'
   import {
-    type DashboardDataSourceModelOption,
     type DashboardDeviceBinding,
     type DashboardLineConfig,
     type DashboardModelConfigurationCsvType,
@@ -499,7 +565,6 @@
     deleteDashboardModelDisplayMapping,
     fetchDashboardBindings,
     fetchDashboardBootstrap,
-    fetchDashboardDataSourceModels,
     fetchDashboardDeviceBindings,
     fetchDashboardModelDisplayMappings,
     fetchDashboardModelFieldDisplayMappings,
@@ -535,7 +600,46 @@
   const robotBindings = ref<DashboardRobotBinding[]>([])
   const deviceBindings = ref<DashboardDeviceBinding[]>([])
   const mappings = ref<DashboardModelDisplayMapping[]>([])
-  const dataModels = ref<DashboardDataSourceModelOption[]>([])
+  const reportedModels = ref<CatalogModel[]>([])
+  const mappingRows = computed(() => mergeModelMappings(mappings.value, reportedModels.value))
+  const selectableMappingModels = computed(() =>
+    mappingRows.value.filter((row) => !row.unclassified)
+  )
+  const dataModels = computed(() =>
+    selectableMappingModels.value.map((row) => ({
+      modelMark: row.modelMark,
+      displayName: row.displayName || row.modelMark,
+      deviceCount: row.deviceCount,
+      latestReceiveTime: row.latestReceiveTime || ''
+    }))
+  )
+  const mappingKeyword = ref('')
+  const mappingStatus = ref('all')
+  const mappingPage = ref(1)
+  const filteredMappings = computed(() => {
+    const keyword = modelIdentity(mappingKeyword.value)
+    return mappingRows.value.filter(
+      (row) =>
+        (!keyword ||
+          modelIdentity(
+            `${row.modelMark} ${row.displayName} ${row.unclassified ? '未分类 未提供模型标识' : ''}`
+          ).includes(keyword)) &&
+        (mappingStatus.value === 'all' || row.configured === (mappingStatus.value === 'configured'))
+    )
+  })
+  const pagedMappings = computed(() =>
+    filteredMappings.value.slice((mappingPage.value - 1) * 20, mappingPage.value * 20)
+  )
+  watch([mappingKeyword, mappingStatus], () => {
+    mappingPage.value = 1
+  })
+  watch(
+    () => filteredMappings.value.length,
+    (count) => {
+      mappingPage.value = Math.min(mappingPage.value, Math.max(1, Math.ceil(count / 20)))
+    }
+  )
+  let mappingLoadVersion = 0
   const modelSourceFields = ref<DashboardSourceFieldOption[]>([])
   const modelFieldMappings = ref<DashboardModelFieldDisplayMapping[]>([])
   const modelStatePriorities = ref<DashboardModelStatePriority[]>([])
@@ -634,14 +738,11 @@
   const load = async () => {
     loading.value = true
     try {
-      const [bootstrap, modelRows, sourceModels] = await Promise.all([
+      const [bootstrap] = await Promise.all([
         fetchDashboardBootstrap(dashboardCode),
-        fetchDashboardModelDisplayMappings(dashboardCode),
-        fetchDashboardDataSourceModels()
+        loadModelMappings()
       ])
       lines.value = bootstrap.lines
-      mappings.value = modelRows
-      dataModels.value = sourceModels
       const nextLayouts = new Map<string, ProductionLineLayout>()
       bootstrap.sceneLayouts.forEach((item) => {
         const parsed = parseLayout(item.layoutJson)
@@ -654,6 +755,18 @@
     } finally {
       loading.value = false
     }
+  }
+  const loadModelMappings = async () => {
+    const version = ++mappingLoadVersion
+    const [modelRows, sources] = await Promise.all([
+      fetchDashboardModelDisplayMappings(dashboardCode),
+      loadReportedModels((page) =>
+        sourceCatalogApi.models({ purpose: 'dashboard', kind: 'Realtime', page, size: 100 })
+      )
+    ])
+    if (version !== mappingLoadVersion) return
+    mappings.value = modelRows
+    reportedModels.value = sources
   }
   const openLayout = (code: string) =>
     router.push({ name: 'ProductionDashboardLayoutEditor', query: { lineCode: code } })
@@ -804,8 +917,21 @@
   }
   const openMappingDialog = (source?: unknown) => {
     const row = source as DashboardModelDisplayMapping | undefined
-    mappingForm.value = row ? { ...row } : emptyMapping()
+    const existing =
+      row &&
+      mappings.value.find(
+        (mapping) => modelIdentity(mapping.modelMark) === modelIdentity(row.modelMark)
+      )
+    mappingForm.value = existing
+      ? { ...existing }
+      : { ...emptyMapping(), modelMark: row?.modelMark || '' }
     mappingDialogOpen.value = true
+  }
+  const selectMappingModel = (value: string) => {
+    const existing = mappings.value.find(
+      (mapping) => modelIdentity(mapping.modelMark) === modelIdentity(value)
+    )
+    mappingForm.value = existing ? { ...existing } : { ...emptyMapping(), modelMark: value.trim() }
   }
   const saveMapping = async () => {
     if (!mappingForm.value.modelMark || !mappingForm.value.displayName)
@@ -815,7 +941,7 @@
       await saveDashboardModelDisplayMapping(mappingForm.value)
       mappingDialogOpen.value = false
       ElMessage.success('设备模型映射已保存')
-      mappings.value = await fetchDashboardModelDisplayMappings(dashboardCode)
+      await loadModelMappings()
     } finally {
       saving.value = false
     }
@@ -826,7 +952,7 @@
       type: 'warning'
     })
     await deleteDashboardModelDisplayMapping(row.id)
-    mappings.value = await fetchDashboardModelDisplayMappings(dashboardCode)
+    await loadModelMappings()
     ElMessage.success('设备模型映射已删除')
   }
   const downloadModelConfiguration = async (includeData: boolean) => {
@@ -1082,6 +1208,31 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0 16px;
+  }
+
+  .dashboard-config__mapping-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 16px;
+
+    .el-input {
+      width: 300px;
+      max-width: 100%;
+    }
+
+    .el-select {
+      width: 150px;
+    }
+
+    span {
+      color: var(--el-text-color-secondary);
+    }
+  }
+
+  .el-pagination {
+    margin-top: 16px;
   }
 
   :deep(.el-table b),

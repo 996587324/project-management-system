@@ -21,7 +21,9 @@
     'project-management',
     'edge-gateway',
     'production-dashboard',
-    'process-board'
+    'process-board',
+    'wechat-push',
+    'email-push'
   ]
   const initialMode = requestedMode === 'chat' ? 'Chat' : 'Work'
   const initialWorkAgentCode = enabledDomains.includes(requestedDomain)

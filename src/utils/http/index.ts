@@ -21,7 +21,10 @@ import { HttpError, handleError, showError, showSuccess } from './error'
 import { $t } from '@/locales'
 import { BaseResponse } from '@/types'
 import { getApiBaseUrl } from '@/utils/runtime-config'
-import { getApplicationRequestSignal } from '@/utils/system-applications/client'
+import {
+  getApplicationRequestSignal,
+  ensureApplicationToken
+} from '@/utils/system-applications/client'
 
 /** 请求配置常量 */
 const REQUEST_TIMEOUT = 15000
@@ -65,11 +68,18 @@ const axiosInstance = axios.create({
 
 /** 请求拦截器 */
 axiosInstance.interceptors.request.use(
-  (request: InternalAxiosRequestConfig) => {
+  async (request: InternalAxiosRequestConfig) => {
     request.signal ??= getApplicationRequestSignal()
     const { accessToken } = useUserStore()
     if (accessToken) {
-      const token = accessToken.startsWith('Bearer ') ? accessToken : `Bearer ${accessToken}`
+      let currentToken: string
+      try {
+        currentToken = await ensureApplicationToken(accessToken)
+      } catch (error) {
+        if ((error as { status?: number }).status === 401) handleUnauthorizedError()
+        throw error
+      }
+      const token = currentToken.startsWith('Bearer ') ? currentToken : `Bearer ${currentToken}`
       request.headers.set('Authorization', token)
     }
 

@@ -14,6 +14,18 @@ export const productionDashboardRoutes: AppRouteRecord = {
   },
   children: [
     {
+      path: 'hourly-production',
+      name: 'HourlyProduction',
+      component: '/hourly-production/board',
+      meta: { title: '小时产量看板', keepAlive: false }
+    },
+    {
+      path: 'hourly-production-config',
+      name: 'HourlyProductionConfig',
+      component: '/hourly-production/config',
+      meta: { title: '小时产量配置', keepAlive: false }
+    },
+    {
       path: 'process-board',
       name: 'ProcessBoard',
       component: '/process-board/board',

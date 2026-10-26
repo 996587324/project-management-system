@@ -31,7 +31,7 @@
             ><ElTag :type="row.bound ? 'success' : 'info'">{{ row.status }}</ElTag></template
           >
         </ElTableColumn>
-        <ElTableColumn label="MCP 推送" width="120"
+        <ElTableColumn label="Agent / MCP 推送" width="150"
           ><template #default="{ row }">{{
             row.mcpPushEnabled ? '允许' : '用户关闭'
           }}</template></ElTableColumn

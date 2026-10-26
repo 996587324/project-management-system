@@ -5,7 +5,7 @@ export const weChatClawBotRoutes: AppRouteRecord = {
   name: 'WeChatClawBotRoot',
   component: '/index/index',
   meta: {
-    title: '微信 ClawBot',
+    title: '推送中心',
     icon: 'ri:wechat-line',
     roles: ['R_SUPER', 'R_ADMIN', 'R_ENGINEER', 'R_USER']
   },
@@ -18,6 +18,22 @@ export const weChatClawBotRoutes: AppRouteRecord = {
         title: '我的微信推送',
         keepAlive: true,
         roles: ['R_SUPER', 'R_ADMIN', 'R_ENGINEER', 'R_USER']
+      }
+    },
+    {
+      path: 'email',
+      name: 'EmailPush',
+      component: '/push-center/email',
+      meta: { title: '邮件推送', icon: 'ri:mail-send-line', keepAlive: true }
+    },
+    {
+      path: '/agent/clawbot-management',
+      name: 'WeChatClawBotManagement',
+      component: '/agent/clawbot-management',
+      meta: {
+        title: '微信管理与调试',
+        keepAlive: true,
+        roles: ['R_SUPER', 'R_ADMIN']
       }
     }
   ]

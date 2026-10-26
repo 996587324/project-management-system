@@ -2,7 +2,9 @@
   <ElCard shadow="never">
     <template #header><div class="records-title">微信发送记录</div></template>
     <ElTable :data="page.records" v-loading="loading">
-      <ElTableColumn prop="source" label="来源" width="110" />
+      <ElTableColumn prop="source" label="来源" width="110">
+        <template #default="{ row }">{{ sourceLabels[row.source] || row.source }}</template>
+      </ElTableColumn>
       <ElTableColumn prop="content" label="内容" min-width="320" show-overflow-tooltip />
       <ElTableColumn prop="status" label="结果" width="100">
         <template #default="{ row }">
@@ -34,13 +36,20 @@
   import { useClawBotRecordPage } from '../composables/useClawBotRecordPage'
 
   const { page, loading, refresh } = useClawBotRecordPage(fetchMyClawBotDeliveries)
+  const sourceLabels: Record<string, string> = {
+    AgentPush: 'Agent 推送',
+    DeviceCard: '卡片推送',
+    AI: 'AI 回复',
+    MCP: 'MCP 推送'
+  }
 
   function deliveryStatusLabel(status: string) {
     const labels: Record<string, string> = {
-      Sent: '发送成功',
+      Sent: '通道已接受',
       Failed: '发送失败',
       Sending: '发送中',
-      Pending: '待发送'
+      Pending: '待发送',
+      Unknown: '结果待核实'
     }
     return labels[status] || status
   }
@@ -53,6 +62,7 @@
     font-size: 18px;
     font-weight: 600;
   }
+
   .records-pagination {
     display: flex;
     justify-content: flex-end;

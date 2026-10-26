@@ -84,6 +84,8 @@ type RawEmailDraft = Api.Agent.EmailDraft & {
 }
 
 type RawEmailSendResult = Api.Agent.EmailSendResult & {
+  TaskId?: number
+  Status?: string
   Success?: boolean
   Message?: string
   ToEmails?: string[]
@@ -194,6 +196,8 @@ function normalizeEmailDraft(data: RawEmailDraft): Api.Agent.EmailDraft {
 
 function normalizeEmailSendResult(data: RawEmailSendResult): Api.Agent.EmailSendResult {
   return {
+    taskId: Number(data.taskId ?? data.TaskId ?? 0),
+    status: data.status ?? data.Status ?? 'Pending',
     success: Boolean(data.success ?? data.Success ?? false),
     message: data.message ?? data.Message ?? '',
     toEmails: data.toEmails ?? data.ToEmails ?? [],

@@ -24,7 +24,8 @@ document.addEventListener(
 
 const app = createApp(App)
 initStore(app)
-configureApplicationClient(getApplicationCode(), () => useUserStore().accessToken)
+configureApplicationClient(getApplicationCode(), () => useUserStore().accessToken,
+  (token) => useUserStore().setToken(token, useUserStore().refreshToken))
 void loadApplicationEntryInformation().catch(() => undefined)
 initRouter(app)
 setupGlobDirectives(app)

@@ -18,50 +18,12 @@
           <el-form-item label="布局设备"
             ><el-input :model-value="deviceName" disabled
           /></el-form-item>
-          <el-form-item label="设备模型" required>
-            <el-select
-              v-model="modelMark"
-              class="w-full"
-              filterable
-              placeholder="选择模型"
-              @change="handleModelChange"
-            >
-              <el-option
-                v-for="item in models"
-                :key="item.modelMark"
-                :label="item.displayName"
-                :value="item.modelMark"
-              >
-                <span>{{ item.displayName }}</span
-                ><small>{{ item.modelMark }}</small>
-              </el-option>
-            </el-select>
-          </el-form-item>
-          <el-form-item label="实时数据设备" required>
-            <el-select
-              v-model="sourceKey"
-              class="w-full"
-              filterable
-              remote
-              reserve-keyword
-              :disabled="!modelMark"
-              :loading="sourceLoading"
-              placeholder="选择或搜索设备"
-              :remote-method="queueSourceSearch"
+          <el-form-item label="模型 / 数据源设备" required>
+            <SourceTreeSelect
+              :model-value="{ sourceKey: form.tenantMark, deviceKey: form.sourceDeviceMark }"
+              purpose="dashboard"
               @change="handleSourceChange"
-            >
-              <el-option
-                v-for="item in sources"
-                :key="sourceKeyOf(item)"
-                :label="item.deviceMark"
-                :value="sourceKeyOf(item)"
-              >
-                <span>{{ item.deviceMark }}</span
-                ><small :class="{ online: item.dataOnline }"
-                  >{{ item.dataOnline ? '接收中' : '已中断' }} · {{ item.tenantMark }}</small
-                >
-              </el-option>
-            </el-select>
+            />
           </el-form-item>
           <el-form-item label="在线超时"
             ><el-input-number
@@ -162,14 +124,11 @@
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue'
   import { ElMessage } from 'element-plus'
+  import SourceTreeSelect from '@/components/business/source-tree-select/index.vue'
+  import type { CatalogDevice } from '@/api/source-catalog'
   import {
-    type DashboardDataSourceModelOption,
-    type DashboardDataSourceOption,
     type DashboardDeviceBinding,
     type DashboardSourceFieldOption,
-    fetchDashboardDataSourceModels,
-    fetchDashboardDataSources,
-    fetchDashboardDataSourcesByModel,
     fetchDashboardDeviceBindings,
     fetchDashboardSourceFields,
     saveDashboardDeviceBinding
@@ -188,15 +147,8 @@
   })
   const loading = ref(false)
   const saving = ref(false)
-  const sourceLoading = ref(false)
-  const models = ref<DashboardDataSourceModelOption[]>([])
-  const sources = ref<DashboardDataSourceOption[]>([])
   const sourceFields = ref<DashboardSourceFieldOption[]>([])
-  const modelMark = ref('')
-  const sourceKey = ref('')
   const selectedPaths = ref<string[]>([])
-  let sourceSearchTimer = 0
-  let sourceRequestVersion = 0
 
   const emptyForm = (): DashboardDeviceBinding => ({
     id: 0,
@@ -215,89 +167,46 @@
     fields: []
   })
   const form = ref<DashboardDeviceBinding>(emptyForm())
-  const sourceKeyOf = (item: Pick<DashboardDataSourceOption, 'tenantMark' | 'deviceMark'>) =>
-    `${item.tenantMark}\u001f${item.deviceMark}`
-
-  const loadSources = async (keyword?: string) => {
-    if (!modelMark.value) return (sources.value = [])
-    const version = ++sourceRequestVersion
-    sourceLoading.value = true
-    try {
-      const result = await fetchDashboardDataSourcesByModel(modelMark.value, keyword?.trim())
-      if (version === sourceRequestVersion) sources.value = result
-    } finally {
-      if (version === sourceRequestVersion) sourceLoading.value = false
-    }
-  }
-  const loadFields = async () => {
-    if (!form.value.tenantMark || !form.value.sourceDeviceMark) return (sourceFields.value = [])
-    sourceFields.value = await fetchDashboardSourceFields(
+  let fieldRequestVersion = 0
+  async function loadFields() {
+    const current = ++fieldRequestVersion
+    sourceFields.value = []
+    if (!form.value.tenantMark || !form.value.sourceDeviceMark) return
+    const fields = await fetchDashboardSourceFields(
       form.value.tenantMark,
       form.value.sourceDeviceMark
     )
+    if (current === fieldRequestVersion) sourceFields.value = fields
   }
+
   const load = async () => {
     loading.value = true
-    modelMark.value = ''
-    sourceKey.value = ''
-    selectedPaths.value = []
-    sources.value = []
     sourceFields.value = []
     try {
-      const [sourceModels, bindings] = await Promise.all([
-        fetchDashboardDataSourceModels(),
-        fetchDashboardDeviceBindings(props.lineCode)
-      ])
-      models.value = sourceModels
+      const bindings = await fetchDashboardDeviceBindings(props.lineCode)
       const existing = bindings.find((item) => item.deviceCode === props.deviceCode)
-      form.value = existing ? structuredClone(existing) : emptyForm()
+      form.value = existing ? JSON.parse(JSON.stringify(existing)) : emptyForm()
       selectedPaths.value = form.value.fields
         .filter((item) => item.enabled)
         .map((item) => item.sourcePath)
-      if (!form.value.sourceDeviceMark) return
-      const matches = await fetchDashboardDataSources(form.value.sourceDeviceMark)
-      const source = matches.find(
-        (item) =>
-          item.tenantMark === form.value.tenantMark &&
-          item.deviceMark === form.value.sourceDeviceMark
-      )
-      if (!source) return
-      modelMark.value = source.modelMark || '__UNCLASSIFIED__'
-      if (!models.value.some((item) => item.modelMark === modelMark.value))
-        models.value.unshift({
-          modelMark: modelMark.value,
-          displayName: source.modelMark || '未分类',
-          deviceCount: 1,
-          latestReceiveTime: source.receiveTime
-        })
-      await loadSources(form.value.sourceDeviceMark)
-      sourceKey.value = `${form.value.tenantMark}\u001f${form.value.sourceDeviceMark}`
       await loadFields()
     } finally {
       loading.value = false
     }
   }
-  const handleModelChange = async () => {
-    sourceKey.value = ''
-    form.value.tenantMark = ''
-    form.value.sourceDeviceMark = ''
-    selectedPaths.value = []
-    sourceFields.value = []
-    await loadSources()
-  }
-  const handleSourceChange = async (key: string) => {
-    const [tenantMark, deviceMark] = key.split('\u001f')
-    form.value.tenantMark = tenantMark || ''
-    form.value.sourceDeviceMark = deviceMark || ''
+  const handleSourceChange = async (source: CatalogDevice) => {
+    if (
+      source.sourceKey === form.value.tenantMark &&
+      source.deviceKey === form.value.sourceDeviceMark
+    )
+      return
+    form.value.tenantMark = source.sourceKey
+    form.value.sourceDeviceMark = source.deviceKey
     form.value.statusSourcePath = undefined
     form.value.statusMappingJson = undefined
     selectedPaths.value = []
     form.value.fields = []
     await loadFields()
-  }
-  const queueSourceSearch = (keyword: string) => {
-    window.clearTimeout(sourceSearchTimer)
-    sourceSearchTimer = window.setTimeout(() => loadSources(keyword), 250)
   }
   const formatValue = (value: unknown) =>
     (typeof value === 'string' ? value : JSON.stringify(value) || 'null').slice(0, 72)

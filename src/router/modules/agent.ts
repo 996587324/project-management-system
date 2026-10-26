@@ -83,16 +83,6 @@ export const agentRoutes: AppRouteRecord = {
         keepAlive: true,
         roles: ['R_SUPER', 'R_ADMIN']
       }
-    },
-    {
-      path: 'clawbot-management',
-      name: 'WeChatClawBotManagement',
-      component: '/agent/clawbot-management',
-      meta: {
-        title: '微信 ClawBot 管理',
-        keepAlive: true,
-        roles: ['R_SUPER', 'R_ADMIN']
-      }
     }
   ]
 }

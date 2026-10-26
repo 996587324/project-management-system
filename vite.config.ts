@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { existsSync, readdirSync } from 'node:fs'
 //import vueDevTools from 'vite-plugin-vue-devtools'
 import viteCompression from 'vite-plugin-compression'
 import Components from 'unplugin-vue-components/vite'
@@ -23,6 +24,8 @@ export default ({ mode }: { mode: string }) => {
       'import.meta.env.VITE_APP_CODE': JSON.stringify(systemB ? 'B' : 'A')
     },
     base: VITE_BASE_URL,
+    // A/B 会同时运行，不能让不同 define 配置相互覆盖依赖缓存。
+    cacheDir: path.resolve(root, 'node_modules/.vite', systemB ? 'system-b' : 'system-a'),
     server: {
       port: Number(VITE_PORT),
       proxy: {
@@ -119,9 +122,36 @@ export default ({ mode }: { mode: string }) => {
       //   filename: 'dist/stats.html' // 分析图生成的文件名及路径
       // }),
     ],
-    // 依赖预构建：避免运行时重复请求与转换，提升首次加载速度
+    // 启动时完成依赖预构建，禁止首次进入懒加载页面时重新优化并整页刷新。
     optimizeDeps: {
+      noDiscovery: true,
       include: [
+        'vue',
+        'vue-router',
+        'pinia',
+        'pinia-plugin-persistedstate',
+        'vue-i18n',
+        '@vue/reactivity',
+        '@vueuse/core',
+        '@element-plus/icons-vue',
+        '@iconify/vue',
+        '@wangeditor/editor',
+        '@wangeditor/editor-for-vue',
+        'axios',
+        'mitt',
+        'nprogress',
+        'ohash',
+        'qrcode.vue',
+        'vue-draggable-plus',
+        'highlight.js',
+        'mammoth/mammoth.browser',
+        'three',
+        'three/examples/jsm/controls/OrbitControls.js',
+        'three/examples/jsm/controls/TransformControls.js',
+        'three/examples/jsm/postprocessing/EffectComposer.js',
+        'three/examples/jsm/postprocessing/OutlinePass.js',
+        'three/examples/jsm/postprocessing/RenderPass.js',
+        'echarts',
         'echarts/core',
         'echarts/charts',
         'echarts/components',
@@ -131,9 +161,11 @@ export default ({ mode }: { mode: string }) => {
         'crypto-js',
         'file-saver',
         'vue-img-cutter',
+        'element-plus',
         'element-plus/es',
-        'element-plus/es/components/*/style/css',
-        'element-plus/es/components/*/style/index'
+        'element-plus/es/locale/lang/en',
+        'element-plus/es/locale/lang/zh-cn',
+        ...elementPlusStyleEntries(root)
       ]
     },
     css: {
@@ -166,4 +198,18 @@ export default ({ mode }: { mode: string }) => {
 
 function resolvePath(paths: string) {
   return path.resolve(__dirname, paths)
+}
+
+function elementPlusStyleEntries(root: string): string[] {
+  const components = path.resolve(root, 'node_modules/element-plus/es/components')
+  // 自动导入插件在页面转换后才补入样式引用，启动扫描看不到这些依赖。
+  // 枚举真实入口；无扩展名的通配符在当前包导出规则下没有覆盖这些文件。
+  return readdirSync(components, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .flatMap((entry) =>
+      ['css', 'index']
+        .filter((style) => existsSync(path.join(components, entry.name, 'style', `${style}.mjs`)))
+        .map((style) => `element-plus/es/components/${entry.name}/style/${style}`)
+    )
+    .sort()
 }

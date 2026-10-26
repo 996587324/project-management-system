@@ -269,52 +269,10 @@
     <ElDialog v-model="emailDialogVisible" title="发送邮件" width="720px" destroy-on-close>
       <ElForm label-width="86px">
         <ElFormItem label="收件人" required>
-          <ElSelect
-            v-model="emailForm.toEmails"
-            multiple
-            filterable
-            remote
-            reserve-keyword
-            allow-create
-            default-first-option
-            :remote-method="searchEmailUsers"
-            :loading="emailUserLoading"
-            placeholder="选择用户邮箱或输入邮箱"
-            style="width: 100%"
-            @focus="() => loadEmailUsers()"
-          >
-            <ElOption
-              v-for="item in emailUserOptions"
-              :key="getUserEmail(item)"
-              :label="formatEmailUserLabel(item)"
-              :value="getUserEmail(item)"
-              :disabled="!getUserEmail(item)"
-            />
-          </ElSelect>
+          <EmailRecipientSelect v-model="emailForm.recipientUserIds" />
         </ElFormItem>
         <ElFormItem label="抄送">
-          <ElSelect
-            v-model="emailForm.ccEmails"
-            multiple
-            filterable
-            remote
-            reserve-keyword
-            allow-create
-            default-first-option
-            :remote-method="searchEmailUsers"
-            :loading="emailUserLoading"
-            placeholder="选择抄送人或输入邮箱"
-            style="width: 100%"
-            @focus="() => loadEmailUsers()"
-          >
-            <ElOption
-              v-for="item in emailUserOptions"
-              :key="`cc-${getUserEmail(item)}`"
-              :label="formatEmailUserLabel(item)"
-              :value="getUserEmail(item)"
-              :disabled="!getUserEmail(item)"
-            />
-          </ElSelect>
+          <EmailRecipientSelect v-model="emailForm.ccUserIds" />
         </ElFormItem>
         <ElFormItem label="主题" required>
           <ElInput v-model="emailForm.subject" maxlength="160" show-word-limit />
@@ -344,7 +302,8 @@
     streamAgentMessage
   } from '@/api/agent'
   import { fetchProjectList } from '@/api/project-manage'
-  import { fetchGetUserList } from '@/api/system-manage'
+  import EmailRecipientSelect from '@/components/business/email-recipient-select/index.vue'
+  import { createEmailRequestKey } from '@/api/email-push'
   import { useUserStore } from '@/store/modules/user'
   import { ArrowLeft, ArrowRight, Close, Delete, Message, Upload } from '@element-plus/icons-vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
@@ -481,6 +440,31 @@
         '查看工艺流程和最近配置变更记录'
       ],
       confirmByReplyOnly: true
+    },
+    {
+      code: 'wechat-push',
+      label: '微信推送',
+      assistantTitle: '微信推送助手',
+      sidebarDescription: '接收人、消息推送与投递结果',
+      panelTitle: '微信推送 Agent',
+      panelDescription: '查询真实接收人，预览内容后回复“确认”入队；可查询本人当前系统的推送结果。',
+      emptyDescription: '说明接收人及消息内容，发送前会请你确认。',
+      composerPlaceholder: '例如：给张三发送微信，提醒他下午三点进行设备点检',
+      suggestions: ['查询可以接收微信的用户', '查看我最近的微信推送结果'],
+      confirmByReplyOnly: true
+    },
+    {
+      code: 'email-push',
+      label: '邮件推送',
+      assistantTitle: '邮件推送助手',
+      sidebarDescription: '统一邮箱发送与投递结果',
+      panelTitle: '邮件推送 Agent',
+      panelDescription:
+        '使用管理员统一配置的发件邮箱；核对收件人、抄送、主题和正文，回复“确认”后入队。',
+      emptyDescription: '说明收件人、主题和正文，发送前会请你确认。',
+      composerPlaceholder: '例如：给李四发邮件，主题为设备点检，正文是下午三点进行点检',
+      suggestions: ['查询有有效邮箱的接收用户', '查看我最近的邮件推送结果'],
+      confirmByReplyOnly: true
     }
   ]
   const chatProfile = {
@@ -558,18 +542,18 @@
   const fileLoading = ref(false)
   const emailSending = ref(false)
   const emailDialogVisible = ref(false)
-  const emailUserLoading = ref(false)
   const conversationLoading = ref(false)
   const messageListRef = ref<HTMLElement>()
   const fileInputRef = ref<HTMLInputElement>()
   const selectedFile = ref<{ name: string; content: string }>()
-  const emailUserOptions = ref<Api.SystemManage.UserListItem[]>([])
   const emailForm = reactive<Api.Agent.EmailSendRequest>({
     conversationId: undefined,
     sourceToolCallId: undefined,
     userId: '',
-    toEmails: [],
-    ccEmails: [],
+    recipientUserIds: [],
+    ccUserIds: [],
+    idempotencyKey: createEmailRequestKey(),
+    confirm: true,
     subject: '',
     body: ''
   })
@@ -803,50 +787,27 @@
     if (isProjectAgent.value) projects.value = await fetchProjectList()
   }
 
-  let emailSearchTimer: ReturnType<typeof setTimeout> | undefined
-
-  const getUserEmail = (item: Api.SystemManage.UserListItem) =>
-    String(item.email || item.userEmail || '')
-
-  const formatEmailUserLabel = (item: Api.SystemManage.UserListItem) => {
-    const email = getUserEmail(item)
-    const name = item.nickName || item.userName || item.userId || item.id || email
-    return email ? `${name} <${email}>` : String(name)
-  }
-
-  const loadEmailUsers = async (keyword = '') => {
-    emailUserLoading.value = true
-    try {
-      const result = await fetchGetUserList({
-        current: 1,
-        size: 30,
-        keyword,
-        enabled: true
-      })
-      emailUserOptions.value = (result.records || []).filter((item) => Boolean(getUserEmail(item)))
-    } finally {
-      emailUserLoading.value = false
-    }
-  }
-
-  const searchEmailUsers = (keyword: string) => {
-    if (emailSearchTimer) clearTimeout(emailSearchTimer)
-    emailSearchTimer = setTimeout(() => {
-      loadEmailUsers(keyword.trim())
-    }, 250)
-  }
-
   const resetEmailForm = () => {
     Object.assign(emailForm, {
       conversationId: activeConversationId.value,
       sourceToolCallId: undefined,
       userId: currentUserId.value,
-      toEmails: [],
-      ccEmails: [],
+      recipientUserIds: [],
+      ccUserIds: [],
+      idempotencyKey: createEmailRequestKey(),
+      confirm: true,
       subject: '',
       body: ''
     })
   }
+
+  watch(
+    () => [emailForm.recipientUserIds, emailForm.ccUserIds, emailForm.subject, emailForm.body],
+    () => {
+      emailForm.idempotencyKey = createEmailRequestKey()
+    },
+    { deep: true }
+  )
 
   const openToolEmailDialog = async (call: Api.Agent.ToolCall) => {
     resetEmailForm()
@@ -860,7 +821,6 @@
     emailForm.subject = draft.subject
     emailForm.body = draft.body
     emailDialogVisible.value = true
-    loadEmailUsers()
   }
 
   const openLatestReplyEmailDialog = async () => {
@@ -879,12 +839,11 @@
     emailForm.subject = draft.subject
     emailForm.body = draft.body
     emailDialogVisible.value = true
-    loadEmailUsers()
   }
 
   const sendEmail = async () => {
-    if (!emailForm.toEmails.length) {
-      ElMessage.warning('请选择或输入收件人')
+    if (!emailForm.recipientUserIds.length) {
+      ElMessage.warning('请选择收件用户')
       return
     }
     if (!emailForm.subject.trim()) {
@@ -901,10 +860,11 @@
       const result = await sendAgentEmail({
         ...emailForm,
         userId: currentUserId.value,
-        toEmails: emailForm.toEmails.map((item) => item.trim()).filter(Boolean),
-        ccEmails: emailForm.ccEmails.map((item) => item.trim()).filter(Boolean)
+        recipientUserIds: [...emailForm.recipientUserIds],
+        ccUserIds: [...emailForm.ccUserIds],
+        confirm: true
       })
-      ElMessage.success(result.message || '邮件发送成功')
+      ElMessage.success(result.message || '已加入邮件发送队列')
       emailDialogVisible.value = false
       await loadConversations()
     } finally {

@@ -14,8 +14,8 @@
       </template>
 
       <ElAlert
-        title="已开放内网直连读取"
-        type="success"
+        title="已开放内网免认证直连读写"
+        type="warning"
         :closable="false"
         show-icon
         description="MCP 和外部工具接口不校验客户端密钥、Token、权限范围、资源编码或来源 IP。请仅通过可信内网、VPN 或受控网关开放服务地址。"
@@ -38,7 +38,8 @@
           所有调用均记录到 ExternalToolAccessLog，包含来源 IP、工具、结果和耗时。
         </ElDescriptionsItem>
         <ElDescriptionsItem label="写操作">
-          已开放 ClawBot 文本推送；调用方必须传入接收用户编码、幂等键和 confirm: true。
+          写工具须传入布尔值 confirm: true 和对应必要业务参数；具体能力以工具目录为准。 ClawBot
+          文本推送还需接收用户编码及幂等键。
         </ElDescriptionsItem>
       </ElDescriptions>
     </ElCard>

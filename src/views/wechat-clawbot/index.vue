@@ -36,6 +36,9 @@
       <ElTabPane label="发送记录" name="sent">
         <ClawBotDeliveryRecords ref="deliveryRecords" />
       </ElTabPane>
+      <ElTabPane label="Agent 推送队列" name="queue" lazy>
+        <ClawBotPushQueue ref="pushQueue" />
+      </ElTabPane>
     </ElTabs>
   </div>
 </template>
@@ -47,6 +50,7 @@
   import ClawBotMessageTest from './components/ClawBotMessageTest.vue'
   import ClawBotReceivedRecords from './components/ClawBotReceivedRecords.vue'
   import ClawBotDeliveryRecords from './components/ClawBotDeliveryRecords.vue'
+  import ClawBotPushQueue from './components/ClawBotPushQueue.vue'
 
   defineOptions({ name: 'WeChatClawBot' })
 
@@ -58,6 +62,7 @@
   const messageTest = ref<InstanceType<typeof ClawBotMessageTest>>()
   const receivedRecords = ref<InstanceType<typeof ClawBotReceivedRecords>>()
   const deliveryRecords = ref<InstanceType<typeof ClawBotDeliveryRecords>>()
+  const pushQueue = ref<InstanceType<typeof ClawBotPushQueue>>()
   const account = reactive<WeChatClawBotAccount>({
     userId: '',
     userName: '',
@@ -88,7 +93,8 @@
         fetchMyClawBotAccount().then((result) => Object.assign(account, result)),
         aiConnection.value?.refresh(false),
         receivedRecords.value?.refresh(),
-        deliveryRecords.value?.refresh()
+        deliveryRecords.value?.refresh(),
+        pushQueue.value?.refresh()
       ])
       recordsError.value = ''
     } catch {
@@ -139,6 +145,7 @@
     gap: 16px;
     min-height: 0;
   }
+
   .clawbot-page__toolbar {
     display: flex;
     flex-shrink: 0;
@@ -151,38 +158,45 @@
     border: 1px solid var(--el-border-color-light);
     border-radius: var(--el-border-radius-base);
   }
+
   .clawbot-page__toolbar-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
     align-items: center;
   }
+
   .clawbot-page__title {
     font-size: 18px;
     font-weight: 600;
   }
+
   .clawbot-page__subtitle {
     margin-top: 5px;
     color: var(--art-gray-500);
   }
+
   .clawbot-page__tabs {
     display: flex;
     flex: 1;
     flex-direction: column;
     min-height: 0;
   }
+
   .clawbot-page__tabs :deep(.el-tabs__header) {
     flex-shrink: 0;
-    margin: 0 0 16px;
     padding: 0 16px;
+    margin: 0 0 16px;
     background: var(--el-bg-color);
     border-radius: var(--el-border-radius-base);
   }
+
   .clawbot-page__tabs :deep(.el-tabs__content) {
     flex: 1;
     min-height: 0;
     overflow: auto;
   }
+
   .clawbot-page__tabs :deep(.el-tab-pane) {
     padding-bottom: 12px;
   }

@@ -16,7 +16,7 @@
     <ElDescriptions :column="2" border>
       <ElDescriptionsItem label="当前状态">{{ statusLabel }}</ElDescriptionsItem>
       <ElDescriptionsItem label="最近发送">{{ account.lastSendTime || '-' }}</ElDescriptionsItem>
-      <ElDescriptionsItem label="MCP 外部推送">
+      <ElDescriptionsItem label="Agent / MCP 推送">
         <ElSwitch
           v-model="pushEnabled"
           :disabled="!account.bound || account.adminDisabled || pushSaving"
@@ -116,20 +116,24 @@
     align-items: center;
     justify-content: space-between;
   }
+
   .binding-title {
     font-size: 18px;
     font-weight: 600;
   }
+
   .binding-subtitle {
     margin-top: 5px;
     color: var(--art-gray-500);
   }
+
   .binding-actions {
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
     margin-top: 18px;
   }
+
   .binding-switch-label {
     margin-left: 8px;
     color: var(--art-gray-600);

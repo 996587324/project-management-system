@@ -123,36 +123,13 @@
       <section class="device-card-config__source">
         <h3>实时数据源</h3>
         <div class="device-card-config__form-grid">
-          <el-form-item label="设备模型">
-            <el-select
-              v-model="modelMark"
-              filterable
-              clearable
-              :loading="sourceLoading"
-              @change="loadSources"
-            >
-              <el-option
-                v-for="model in models"
-                :key="model.modelMark"
-                :label="`${model.displayName}（${model.deviceCount} 台）`"
-                :value="model.modelMark"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="实时设备" required>
-            <el-select
-              v-model="sourceKey"
-              filterable
-              :loading="sourceLoading"
+          <el-form-item label="模型 / 实时设备" required>
+            <SourceTreeSelect
+              :model-value="{ sourceKey: form.tenantMark, deviceKey: form.deviceMark }"
+              purpose="device-card"
               @change="selectSource"
-            >
-              <el-option
-                v-for="source in sources"
-                :key="`${source.tenantMark}|${source.deviceMark}`"
-                :label="`${source.deviceMark} · ${source.dataOnline ? '在线' : '离线'}`"
-                :value="`${source.tenantMark}|${source.deviceMark}`"
-              />
-            </el-select>
+              @resolved="form.modelMark = $event.modelMark"
+            />
           </el-form-item>
           <el-form-item label="历史字段管理">
             <el-button :disabled="!form.deviceMark" @click="catalogOpen = true"
@@ -373,13 +350,15 @@
   </main>
   <FieldCatalogDialog
     v-model="catalogOpen"
-    :initial-model="form.modelMark || modelMark"
+    :initial-model="form.modelMark"
     @changed="reloadSourceFields"
   />
 </template>
 
 <script setup lang="ts">
   import { ref, watch } from 'vue'
+  import SourceTreeSelect from '@/components/business/source-tree-select/index.vue'
+  import type { CatalogDevice } from '@/api/source-catalog'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { useRouter } from 'vue-router'
   import FieldCatalogDialog from '@/components/business/historical-field-catalog/FieldCatalogDialog.vue'
@@ -387,8 +366,6 @@
   import PushRecordsDialog from './components/PushRecordsDialog.vue'
   import { defaultDeviceCardPush, type DeviceCardPushConfig } from '@/api/device-card-push'
   import type {
-    DashboardDataSourceModelOption,
-    DashboardDataSourceOption,
     DashboardDeviceCard,
     DashboardDeviceCardAlertRecord,
     DashboardDeviceCardField,
@@ -398,8 +375,6 @@
   import {
     deleteDashboardDeviceCard,
     fetchDashboardBootstrap,
-    fetchDashboardDataSourceModels,
-    fetchDashboardDataSourcesByModel,
     fetchDashboardDeviceCardRuntime,
     fetchDashboardDeviceCardAlertRecords,
     fetchDashboardDeviceCards,
@@ -410,23 +385,21 @@
 
   const router = useRouter()
   const catalogOpen = ref(false)
+  let fieldRequestVersion = 0
   async function reloadSourceFields() {
-    if (form.value.tenantMark && form.value.deviceMark) {
-      sourceFields.value = await fetchDashboardSourceFields(
-        form.value.tenantMark,
-        form.value.deviceMark
-      )
-    }
+    const current = ++fieldRequestVersion
+    sourceFields.value = []
+    if (!form.value.tenantMark || !form.value.deviceMark) return
+    const fields = await fetchDashboardSourceFields(form.value.tenantMark, form.value.deviceMark)
+    if (current === fieldRequestVersion) sourceFields.value = fields
   }
+
   const loading = ref(false)
   const saving = ref(false)
-  const sourceLoading = ref(false)
   const lines = ref<DashboardLineConfig[]>([])
   const cards = ref<DashboardDeviceCard[]>([])
   const lineCode = ref('')
   const columnCount = ref(4)
-  const models = ref<DashboardDataSourceModelOption[]>([])
-  const sources = ref<DashboardDataSourceOption[]>([])
   const sourceFields = ref<DashboardSourceFieldOption[]>([])
   const dialogOpen = ref(false)
   const alertDialogOpen = ref(false)
@@ -452,8 +425,6 @@
     if (pushField.value)
       pushField.value.push = { ...config, recipientUserIds: [...config.recipientUserIds] }
   }
-  const modelMark = ref('')
-  const sourceKey = ref('')
   const newFieldPath = ref('')
   const blank = (): DashboardDeviceCard => ({
     id: 0,
@@ -478,12 +449,8 @@
   const load = async () => {
     loading.value = true
     try {
-      const [bootstrap, modelRows] = await Promise.all([
-        fetchDashboardBootstrap('production-dashboard'),
-        fetchDashboardDataSourceModels()
-      ])
+      const bootstrap = await fetchDashboardBootstrap('production-dashboard')
       lines.value = bootstrap.lines.filter((line) => line.enabled)
-      models.value = modelRows
       if (!lineCode.value || !lines.value.some((line) => line.lineCode === lineCode.value))
         lineCode.value = lines.value[0]?.lineCode || ''
       await loadCards()
@@ -491,27 +458,17 @@
       loading.value = false
     }
   }
-  const loadSources = async () => {
-    sourceKey.value = ''
-    sourceFields.value = []
-    sources.value = []
-    if (!modelMark.value) return
-    sourceLoading.value = true
-    try {
-      sources.value = await fetchDashboardDataSourcesByModel(modelMark.value)
-    } finally {
-      sourceLoading.value = false
-    }
-  }
-  const selectSource = async () => {
-    const source = sources.value.find(
-      (item) => `${item.tenantMark}|${item.deviceMark}` === sourceKey.value
-    )
-    if (!source) return
-    form.value.tenantMark = source.tenantMark
-    form.value.deviceMark = source.deviceMark
+  const selectSource = async (source: CatalogDevice) => {
+    if (form.value.tenantMark === source.sourceKey && form.value.deviceMark === source.deviceKey)
+      return
+    form.value.tenantMark = source.sourceKey
+    form.value.deviceMark = source.deviceKey
     form.value.modelMark = source.modelMark
-    sourceFields.value = await fetchDashboardSourceFields(source.tenantMark, source.deviceMark)
+    form.value.fields = []
+    form.value.statusSourcePath = undefined
+    form.value.statusMappingJson = undefined
+    newFieldPath.value = ''
+    await reloadSourceFields()
   }
   /** Element Plus 表格行是响应式代理对象，不能直接传入 structuredClone。 */
   const cloneCard = (card: DashboardDeviceCard): DashboardDeviceCard => ({
@@ -525,20 +482,9 @@
   })
   const openDialog = async (card?: DashboardDeviceCard) => {
     form.value = card ? cloneCard(card) : blank()
-    modelMark.value = form.value.modelMark || ''
-    sourceKey.value =
-      form.value.tenantMark && form.value.deviceMark
-        ? `${form.value.tenantMark}|${form.value.deviceMark}`
-        : ''
     sourceFields.value = []
     newFieldPath.value = ''
-    if (modelMark.value) {
-      await loadSources()
-      if (form.value.tenantMark && form.value.deviceMark) {
-        sourceKey.value = `${form.value.tenantMark}|${form.value.deviceMark}`
-        await selectSource()
-      }
-    }
+    await reloadSourceFields()
     dialogOpen.value = true
   }
   /** 生成当前卡片尚未使用的字段编码，避免删除字段后按数组长度重新产生重复编码。 */

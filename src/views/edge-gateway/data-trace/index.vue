@@ -146,30 +146,19 @@
     >
       <el-form label-width="115px">
         <el-form-item label="规则名称"><el-input v-model.trim="ruleDraft.ruleName" /></el-form-item>
-        <el-form-item label="边缘设备"
-          ><el-select v-model="ruleDraft.edgeDeviceId" filterable @change="loadSources"
-            ><el-option
-              v-for="device in devices"
-              :key="device.id"
-              :label="device.deviceName"
-              :value="device.id" /></el-select
-        ></el-form-item>
-        <el-form-item label="WebSocket 数据源"
-          ><el-select v-model="ruleDraft.sourceId" filterable @change="selectSource"
-            ><el-option
-              v-for="source in sources"
-              :key="source.id"
-              :label="`${source.sourceName} (${source.sourceId})`"
-              :value="source.sourceId" /></el-select
-        ></el-form-item>
-        <el-form-item label="来源业务设备"
-          ><el-select v-model="ruleDraft.sourceDeviceCode" filterable @change="selectBusinessDevice"
-            ><el-option
-              v-for="item in subscriptionDevices"
-              :key="item.deviceCode"
-              :label="item.deviceName || item.deviceCode"
-              :value="item.deviceCode" /></el-select
-        ></el-form-item>
+        <el-form-item label="模型 / 来源设备">
+          <SourceTreeSelect
+            :model-value="{
+              sourceKey: ruleDraft.sourceId,
+              deviceKey: ruleGatewayCode,
+              sourceDeviceCode: ruleDraft.sourceDeviceCode
+            }"
+            kind="Edge"
+            purpose="trace"
+            @change="selectTraceDevice"
+            @resolved="loadTraceParameters"
+          />
+        </el-form-item>
         <el-form-item label="追溯参数">
           <el-select
             v-model="fieldCodes"
@@ -210,6 +199,8 @@
     watch,
     type ComponentPublicInstance
   } from 'vue'
+  import SourceTreeSelect from '@/components/business/source-tree-select/index.vue'
+  import type { CatalogDevice } from '@/api/source-catalog'
   import { useRouter } from 'vue-router'
   import { Plus, Refresh, Setting } from '@element-plus/icons-vue'
   import { ElMessage, ElMessageBox, type ElTree } from 'element-plus'
@@ -221,8 +212,6 @@
     fetchDataTraceSetting,
     fetchDataTraceTree,
     fetchDataTraceTrend,
-    fetchEdgeDevices,
-    fetchWebSocketSources,
     fetchWebSocketSubscriptions,
     saveDataTraceRule,
     saveDataTraceSetting,
@@ -230,9 +219,7 @@
     type EdgeDataTraceRule,
     type EdgeDataTraceTreeNode,
     type EdgeDataTraceTrendSeries,
-    type EdgeDevice,
-    type EdgeWebSocketSubscriptionDevice,
-    type EdgeWebSocketSource
+    type EdgeWebSocketSubscriptionDevice
   } from '@/api/edge-gateway'
 
   defineOptions({ name: 'EdgeDataTrace' })
@@ -244,8 +231,8 @@
   const { applyTheme } = useBusinessChartTheme()
   const tree = ref<EdgeDataTraceTreeNode[]>([])
   const rules = ref<EdgeDataTraceRule[]>([])
-  const devices = ref<EdgeDevice[]>([])
-  const sources = ref<EdgeWebSocketSource[]>([])
+  const ruleGatewayCode = ref('')
+  let parameterRevision = 0
   const subscriptionDevices = ref<EdgeWebSocketSubscriptionDevice[]>([])
   const treeLoading = ref(false)
   const chartLoading = ref(false)
@@ -284,9 +271,6 @@
     fields: []
   })
   const fieldCodes = ref<string[]>([])
-  const selectedSource = computed(() =>
-    sources.value.find((item) => item.sourceId === ruleDraft.sourceId)
-  )
   const selectedBusinessDevice = computed(() =>
     subscriptionDevices.value.find((item) => item.deviceCode === ruleDraft.sourceDeviceCode)
   )
@@ -312,17 +296,15 @@
   const reload = async () => {
     loading.value = true
     try {
-      const [settingData, rulesData, treeData, devicePage] = await Promise.all([
+      const [settingData, rulesData, treeData] = await Promise.all([
         fetchDataTraceSetting(),
         fetchDataTraceRules(),
-        fetchDataTraceTree(),
-        fetchEdgeDevices({ current: 1, size: 500 })
+        fetchDataTraceTree()
       ])
       Object.assign(setting, settingData)
       Object.assign(settingDraft, settingData)
       rules.value = rulesData
       tree.value = treeData
-      devices.value = devicePage.records
       await nextTick()
       if (selectedFieldIds.value.length) await loadTrend()
     } finally {
@@ -427,30 +409,30 @@
     })
   }
 
-  const loadSources = async () => {
-    ruleDraft.sourceId = ''
-    ruleDraft.sourceDeviceCode = ''
-    ruleDraft.sourceDeviceName = ''
-    fieldCodes.value = []
-    ruleDraft.fields = []
+  const loadTraceParameters = async (source: CatalogDevice) => {
+    const current = ++parameterRevision
     subscriptionDevices.value = []
-    sources.value = ruleDraft.edgeDeviceId
-      ? await fetchWebSocketSources(ruleDraft.edgeDeviceId)
-      : []
+    const records = await fetchWebSocketSubscriptions(source.connectionId)
+    if (current === parameterRevision) subscriptionDevices.value = records
   }
-  const selectSource = async () => {
-    ruleDraft.sourceDeviceCode = ''
-    ruleDraft.sourceDeviceName = ''
+
+  const selectTraceDevice = async (source: CatalogDevice) => {
+    if (
+      ruleGatewayCode.value === source.deviceKey &&
+      ruleDraft.sourceId === source.sourceKey &&
+      ruleDraft.sourceDeviceCode === source.sourceDeviceCode
+    )
+      return
+    ruleGatewayCode.value = source.deviceKey
+    ruleDraft.edgeDeviceId = source.gatewayId
+    ruleDraft.sourceId = source.sourceKey
+    ruleDraft.sourceDeviceCode = source.sourceDeviceCode || ''
+    ruleDraft.sourceDeviceName = source.deviceName
     fieldCodes.value = []
     ruleDraft.fields = []
-    const source = selectedSource.value
-    subscriptionDevices.value = source ? await fetchWebSocketSubscriptions(source.id) : []
+    await loadTraceParameters(source)
   }
-  const selectBusinessDevice = () => {
-    ruleDraft.sourceDeviceName = selectedBusinessDevice.value?.deviceName || ''
-    fieldCodes.value = []
-    ruleDraft.fields = []
-  }
+
   const syncFields = () => {
     ruleDraft.fields = fieldCodes.value.map((code, index) => {
       const parameter = availableParameters.value.find((item) => item.parameterName === code)
@@ -481,7 +463,9 @@
       remark: '',
       fields: []
     })
-    sources.value = []
+    ruleGatewayCode.value = ''
+    subscriptionDevices.value = []
+    parameterRevision++
     fieldCodes.value = []
     ruleEditorVisible.value = true
   }
@@ -491,11 +475,9 @@
   }
   const editRule = async (row: EdgeDataTraceRule) => {
     Object.assign(ruleDraft, JSON.parse(JSON.stringify(row)))
-    await loadSources()
-    ruleDraft.sourceId = row.sourceId
-    await selectSource()
-    ruleDraft.sourceDeviceCode = row.sourceDeviceCode
-    ruleDraft.sourceDeviceName = row.sourceDeviceName
+    ruleGatewayCode.value = row.edgeDeviceCode
+    subscriptionDevices.value = []
+    parameterRevision++
     fieldCodes.value = row.fields.map((field) => field.fieldCode)
     ruleDraft.fields = JSON.parse(JSON.stringify(row.fields))
     ruleEditorVisible.value = true
@@ -576,11 +558,11 @@
 
   .trace-tree-card,
   .trace-chart-card {
-    box-shadow: var(--business-card-shadow);
     padding: 16px;
     background: var(--el-bg-color);
     border: 1px solid var(--el-border-color-lighter);
     border-radius: var(--business-radius);
+    box-shadow: var(--business-card-shadow);
   }
 
   .panel-title {

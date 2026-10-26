@@ -21,7 +21,13 @@
           </el-form-item>
           <el-form-item label="Value 来源">
             <el-input v-if="fixed" v-model="field.fixedText" placeholder="工艺设定值或文字说明" />
-            <SourceBindingEditor v-else v-model="field.source" @field="applyMapping" />
+            <SourceBindingEditor
+              v-else
+              v-model="field.source"
+              :process-line-id="processLineId"
+              :allowed-devices="allowedDevices"
+              @field="applyMapping"
+            />
           </el-form-item>
           <el-row :gutter="16">
             <el-col :span="12"
@@ -67,12 +73,11 @@
           /></el-form-item>
           <div v-for="(binding, name) in field.variables" :key="name" class="variable-row">
             <el-tag>{{ name }}</el-tag
-            ><SourceBindingEditor v-model="field.variables[name]" /><el-button
-              link
-              type="danger"
-              @click="removeVariable(String(name))"
-              >移除</el-button
-            >
+            ><SourceBindingEditor
+              v-model="field.variables[name]"
+              :process-line-id="processLineId"
+              :allowed-devices="allowedDevices"
+            /><el-button link type="danger" @click="removeVariable(String(name))">移除</el-button>
           </div>
           <el-form-item label="新增变量"
             ><el-input
@@ -171,12 +176,17 @@
     emptyField,
     processApi,
     type ProcessField,
-    type SourceField
+    type SourceField,
+    type SourceBinding
   } from '@/api/process-board'
   import SourceBindingEditor from './SourceBindingEditor.vue'
 
   const visible = defineModel<boolean>({ required: true })
-  const props = defineProps<{ value: ProcessField }>()
+  const props = defineProps<{
+    value: ProcessField
+    processLineId?: number
+    allowedDevices?: SourceBinding[]
+  }>()
   const emit = defineEmits<{ save: [value: ProcessField] }>()
   const field = ref(emptyField())
   const fixed = ref(false)
@@ -271,16 +281,18 @@
 <style scoped lang="scss">
   .tip {
     margin-left: 12px;
-    color: var(--el-text-color-secondary);
     font-size: 13px;
+    color: var(--el-text-color-secondary);
   }
+
   .el-alert {
     margin-bottom: 20px;
   }
+
   .variable-row {
     display: flex;
-    align-items: center;
     gap: 12px;
+    align-items: center;
     margin-bottom: 16px;
   }
 </style>

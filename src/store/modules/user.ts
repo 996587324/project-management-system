@@ -49,12 +49,15 @@ import { requestAvatarMetadata, type AvatarMetadata } from '@/api/user-profile'
 import {
   applicationStorageKey,
   cancelApplicationRequests,
-  getTokenPurpose
+  getTokenPurpose,
+  getTokenSessionId
 } from '@/utils/system-applications/client'
 
 interface LogoutOptions {
   /** 用户主动退出时同步结束统一身份平台会话，便于切换账号。 */
   sso?: boolean
+  /** 公开只读页面清理后台会话时保留当前页面。 */
+  redirect?: boolean
 }
 
 /**
@@ -243,6 +246,17 @@ export const useUserStore = defineStore(
      * 如果是同一账号重新登录，保留工作台标签页
      */
     const logOut = (options: LogoutOptions = {}) => {
+      const sessionId = getTokenSessionId(accessToken.value)
+      if (sessionId) {
+        try {
+          localStorage.setItem(
+            `calmadmin:session-activity:${sessionId}`,
+            JSON.stringify({ lastActivity: Date.now(), expired: true })
+          )
+        } catch {
+          /* 其他页面仍会通过服务器识别已退出的会话。 */
+        }
+      }
       if (accessToken.value) {
         void window
           .fetch(getApiUrl('/api/system-applications/logout'), {
@@ -291,6 +305,7 @@ export const useUserStore = defineStore(
         window.location.assign(getOAuth2LogoutUrl())
         return
       }
+      if (options.redirect === false) return
       router.replace({
         name: 'Login',
         query: redirect ? { redirect } : undefined

@@ -33,6 +33,13 @@
       <ElDescriptionsItem label="Agent 会话">{{ state.conversationId || '-' }}</ElDescriptionsItem>
       <ElDescriptionsItem label="当前 Agent">{{ state.activeAgentCode || '-' }}</ElDescriptionsItem>
     </ElDescriptions>
+    <ElAlert
+      class="ai-connection__section"
+      title="推送用法：在工作模式勾选微信推送助手、邮件推送助手。可发送 @wechat-push 给某人发送内容，或 @email-push 给某人发邮件。核对预览后回复“确认”。转发上一轮结果仅支持同用户、同系统、30分钟内且授权未变更的业务回答。"
+      type="info"
+      :closable="false"
+      show-icon
+    />
     <ElForm
       :model="form"
       label-width="140px"
@@ -396,17 +403,20 @@
   .ai-connection__header,
   .ai-connection__actions {
     display: flex;
-    align-items: center;
     flex-wrap: wrap;
     gap: 12px;
+    align-items: center;
   }
+
   .ai-connection__header {
     justify-content: space-between;
   }
+
   .ai-connection__section,
   .ai-connection__actions {
     margin-top: 20px;
   }
+
   .ai-connection__input {
     width: 100%;
   }

@@ -15,7 +15,7 @@
         </el-form-item>
       </div>
 
-      <div v-if="scopeType !== 'Global'" class="form-grid">
+      <div v-if="scopeType === 'Gateway'" class="form-grid">
         <el-form-item label="边缘节点" required>
           <el-select
             v-model="form.deviceId"
@@ -31,38 +31,25 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="scopeType === 'SubscriptionDevice'" label="WebSocket 数据源" required>
-          <el-select
-            v-model="form.sourceId"
-            :loading="sourceLoading"
-            filterable
-            placeholder="选择 WebSocket 连接"
-            @change="handleSourceChange"
-          >
-            <el-option
-              v-for="source in sourceOptions"
-              :key="source.id"
-              :label="`${source.sourceName} (${source.sourceId})${source.enabled ? '' : ' · 已停用'}`"
-              :value="source.sourceId"
-            />
-          </el-select>
-        </el-form-item>
       </div>
 
-      <el-form-item v-if="scopeType === 'SubscriptionDevice'" label="WebSocket 订阅设备" required>
-        <el-select
-          v-model="form.sourceDeviceCode"
-          :disabled="!form.sourceId"
-          filterable
-          placeholder="选择该连接订阅的 deviceCode"
-        >
-          <el-option
-            v-for="device in subscriptionDeviceOptions"
-            :key="device.id || device.deviceCode"
-            :label="`${device.deviceName || '未命名设备'} (${device.deviceCode})${device.enabled ? '' : ' · 已停用'}`"
-            :value="device.deviceCode"
-          />
-        </el-select>
+      <el-form-item
+        v-if="scopeType === 'SubscriptionDevice'"
+        label="模型 / WebSocket 订阅设备"
+        required
+      >
+        <SourceTreeSelect
+          :model-value="{
+            sourceKey: form.sourceId || '',
+            deviceKey: selectedDeviceCode || '',
+            sourceDeviceCode: form.sourceDeviceCode
+          }"
+          kind="Edge"
+          purpose="b-mapping"
+          :gateway-id="form.deviceId"
+          @change="selectCatalogDevice"
+          @resolved="catalogGatewayCode = $event.deviceKey"
+        />
       </el-form-item>
 
       <el-form-item label="报文模板">
@@ -127,16 +114,16 @@
 
 <script setup lang="ts">
   import { computed, reactive, ref, watch } from 'vue'
+  import SourceTreeSelect from '@/components/business/source-tree-select/index.vue'
+  import type { CatalogDevice } from '@/api/source-catalog'
   import { ElMessage } from 'element-plus'
   import { Plus } from '@element-plus/icons-vue'
   import {
     saveEdgeBMapping,
-    fetchWebSocketSources,
     type EdgeBMapping,
     type EdgeBPayloadTemplate,
     type EdgeBTransportProtocol,
-    type EdgeDevice,
-    type EdgeWebSocketSource
+    type EdgeDevice
   } from '@/api/edge-gateway'
   import EdgeBHttpTransportFields from './EdgeBHttpTransportFields.vue'
   import EdgeBFieldMappingEditor from './EdgeBFieldMappingEditor.vue'
@@ -163,20 +150,17 @@
   }>()
   type BMappingScope = 'Global' | 'Gateway' | 'SubscriptionDevice'
   const scopeType = ref<BMappingScope>('Global')
-  const sourceOptions = ref<EdgeWebSocketSource[]>([])
-  const sourceLoading = ref(false)
+  const catalogGatewayCode = ref('')
   const scopeOptions: Array<{ label: string; value: BMappingScope }> = [
     { label: '全局默认', value: 'Global' },
     { label: '节点默认', value: 'Gateway' },
     { label: '订阅设备', value: 'SubscriptionDevice' }
   ]
   const selectedDeviceCode = computed(
-    () => props.deviceOptions.find((device) => device.id === form.deviceId)?.deviceCode
+    () =>
+      catalogGatewayCode.value ||
+      props.deviceOptions.find((device) => device.id === form.deviceId)?.deviceCode
   )
-  const selectedSource = computed(() =>
-    sourceOptions.value.find((source) => source.sourceId === form.sourceId)
-  )
-  const subscriptionDeviceOptions = computed(() => selectedSource.value?.subscriptionDevices || [])
   const templateOptions = computed(() => {
     const items = [...props.templates]
     if (
@@ -223,15 +207,11 @@
 
   const form = reactive<EdgeBMapping>(defaultMapping())
 
-  const loadSourceOptions = async () => {
-    sourceOptions.value = []
-    if (!form.deviceId) return
-    sourceLoading.value = true
-    try {
-      sourceOptions.value = await fetchWebSocketSources(form.deviceId)
-    } finally {
-      sourceLoading.value = false
-    }
+  const selectCatalogDevice = (source: CatalogDevice) => {
+    form.deviceId = source.gatewayId
+    catalogGatewayCode.value = source.deviceKey
+    form.sourceId = source.sourceKey
+    form.sourceDeviceCode = source.sourceDeviceCode
   }
 
   const resetForm = async () => {
@@ -243,7 +223,7 @@
       : form.deviceId
         ? 'Gateway'
         : 'Global'
-    await loadSourceOptions()
+    catalogGatewayCode.value = ''
   }
 
   const clearSubscriptionScope = () => {
@@ -254,7 +234,7 @@
   const handleScopeChange = (scope: BMappingScope) => {
     if (scope === 'Global') {
       form.deviceId = undefined
-      sourceOptions.value = []
+      catalogGatewayCode.value = ''
       clearSubscriptionScope()
       return
     }
@@ -263,11 +243,7 @@
 
   const handleDeviceChange = async () => {
     clearSubscriptionScope()
-    await loadSourceOptions()
-  }
-
-  const handleSourceChange = () => {
-    form.sourceDeviceCode = undefined
+    catalogGatewayCode.value = ''
   }
 
   const applySelectedTemplate = (templateId?: number) => {
