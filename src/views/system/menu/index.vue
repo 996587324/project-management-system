@@ -45,6 +45,7 @@
         :action="action"
         :lockType="lockMenuType"
         :menus="tableData"
+        :saving="menuSubmitting"
         @submit="handleSubmit"
       />
     </ElCard>
@@ -74,6 +75,7 @@
 
   // 弹窗相关
   const dialogVisible = ref(false)
+  const menuSubmitting = ref(false)
   const dialogType = ref<'menu' | 'button'>('menu')
   const editData = ref<AppRouteRecord | any>(null)
   const lockMenuType = ref(false)
@@ -440,15 +442,21 @@
    * @param formData 表单数据
    */
   const handleSubmit = async (formData: MenuFormData): Promise<void> => {
-    if (formData.action === 'add') {
-      await fetchSetMenu(formData)
-      ElMessage.success('添加成功')
-    } else if (formData.action === 'edit') {
-      await fetchEditMenu(formData)
-      ElMessage.success('编辑成功')
+    if (menuSubmitting.value) return
+    menuSubmitting.value = true
+    try {
+      if (formData.action === 'add') {
+        await fetchSetMenu(formData)
+        dialogVisible.value = false
+        ElMessage.success('添加成功')
+      } else if (formData.action === 'edit') {
+        await fetchEditMenu(formData)
+        ElMessage.success('编辑成功')
+      }
+      getMenuList()
+    } finally {
+      menuSubmitting.value = false
     }
-    // TODO: 调用API保存数据
-    getMenuList()
   }
 
   /**

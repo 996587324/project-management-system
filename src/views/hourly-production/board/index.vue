@@ -7,6 +7,13 @@
   >
     <header class="board-header">
       <div
+        ><el-button @click="toggleShift">{{ previous ? '返回当前班次' : '查看上一班次' }}</el-button
+        ><span
+          >{{ runtime?.shiftName }} {{ runtime?.shiftStart?.replace('T', ' ') }} 至
+          {{ runtime?.shiftEnd?.replace('T', ' ') }}</span
+        ></div
+      >
+      <div
         ><h1>{{ runtime?.name || '小时产量与目标看板' }}</h1
         ><span
           >生产日 {{ runtime?.productionDate.slice(0, 10) || '—' }} ·
@@ -34,10 +41,21 @@
         ><i class="blue" />产出 <i class="orange" />返工 <i class="green" />达标 <b>┄</b>目标
         <span>未来时段待开始；当前小时统计中</span></div
       >
-      <div class="two-lines">
-        <LineSummary v-for="line in runtime.lines" :key="line.code" :line="line" />
+      <div class="layout-controls" v-if="groups.length > 1"
+        ><el-button @click="turnGroup(-1)">上一组</el-button
+        ><span>对比组 {{ groupIndex + 1 }} / {{ groups.length }}</span
+        ><el-button @click="turnGroup(1)">下一组</el-button
+        ><el-button @click="paused = !paused">{{
+          paused ? '继续轮播' : '暂停轮播'
+        }}</el-button></div
+      >
+      <div
+        class="two-lines"
+        :style="{ gridTemplateColumns: `repeat(${displayLines.length || 1}, minmax(0,1fr))` }"
+      >
+        <LineSummary v-for="line in displayLines" :key="line.code" :line="line" />
       </div>
-      <ProcessCarousel :key="runtime.code" :lines="runtime.lines" />
+      <ProcessCarousel :key="runtime.code + groupIndex" :lines="displayLines" />
       <footer v-if="runtime.advice" class="advice"
         ><strong>AI 运行建议</strong
         ><div
@@ -68,7 +86,48 @@
   const publicRead = computed(() => route.meta.publicReadOnly === true)
   const selected = ref(String(route.params.boardCode || route.query.code || ''))
   const boards = ref<Pick<HourlyBoard, 'code' | 'name' | 'published'>[]>([])
+  function toggleShift() {
+    previous.value = !previous.value
+    void load()
+  }
+  const previous = ref(false)
   const runtime = ref<HourlyRuntime>()
+  const groupIndex = ref(0)
+  const paused = ref(false)
+  const groups = computed(() =>
+    runtime.value?.layout?.groups?.length
+      ? runtime.value.layout.groups
+      : [runtime.value?.lines.slice(0, 2).map((x) => x.code) || []]
+  )
+  const displayLines = computed(() =>
+    (groups.value[groupIndex.value] || groups.value[0] || []).flatMap(
+      (code) => runtime.value?.lines.filter((line) => line.code === code) || []
+    )
+  )
+  function turnGroup(delta: number) {
+    groupIndex.value = (groupIndex.value + delta + groups.value.length) % groups.value.length
+  }
+  watch(
+    () => JSON.stringify([runtime.value?.code, runtime.value?.layout]),
+    () => {
+      groupIndex.value = 0
+      paused.value = false
+    }
+  )
+  let rotationTimer: ReturnType<typeof setInterval> | undefined
+  let rotationElapsed = 0
+  onMounted(() => {
+    rotationTimer = setInterval(() => {
+      if (document.hidden || paused.value || runtime.value?.layout?.mode !== 'Rotate') return
+      if (++rotationElapsed >= (runtime.value.layout.rotationSeconds || 15)) {
+        rotationElapsed = 0
+        turnGroup(1)
+      }
+    }, 1000)
+  })
+  onBeforeUnmount(() => {
+    if (rotationTimer) clearInterval(rotationTimer)
+  })
   const loading = ref(false)
   const error = ref('')
   const boardElement = ref<HTMLElement>()
@@ -82,7 +141,7 @@
     const current = ++revision
     loading.value = !runtime.value
     try {
-      const result = await hourlyApi.runtime(selected.value, publicRead.value)
+      const result = await hourlyApi.runtime(selected.value, publicRead.value, previous.value)
       if (current !== revision || disposed) return
       runtime.value = result
       error.value = ''

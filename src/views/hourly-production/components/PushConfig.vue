@@ -12,7 +12,7 @@
         v-model="board.push.lineCodes"
         multiple
         style="width: 100%"
-        placeholder="留空推送两条线"
+        placeholder="留空推送全部线体"
         ><el-option
           v-for="line in board.lines"
           :key="line.code"

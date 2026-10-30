@@ -30,11 +30,16 @@
         class="process-page"
         :style="{ gridTemplateRows: `repeat(${visibleRows.length}, minmax(0, 1fr))` }"
       >
-        <div v-for="row in visibleRows" :key="row" class="process-row">
+        <div
+          v-for="row in visibleRows"
+          :key="row"
+          class="process-row"
+          :style="{ gridTemplateColumns: `repeat(${lines.length || 1}, minmax(0,1fr))` }"
+        >
           <template v-for="line in lines" :key="line.code">
             <HourlyChart
               v-if="findProcess(line, row)"
-              :title="findProcess(line, row)!.name"
+              :title="line.name + ' · ' + findProcess(line, row)!.name"
               :points="findProcess(line, row)!.points"
               :configured="findProcess(line, row)!.configured"
               fill

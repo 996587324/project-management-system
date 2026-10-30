@@ -3,7 +3,7 @@ import { AppRouteRecord } from '@/types/router'
 
 // 获取用户列表
 export function fetchGetUserList(params: Api.SystemManage.UserSearchParams) {
-  var item = request.get<Api.SystemManage.UserList>({
+  const item = request.get<Api.SystemManage.UserList>({
     url: '/api/UserInfo/GetUserPage',
     params
   })
@@ -13,45 +13,44 @@ export function fetchGetUserList(params: Api.SystemManage.UserSearchParams) {
 // 获取角色列表
 export function fetchGetRoleList(params: Api.SystemManage.RoleSearchParams) {
   return request.get<Api.SystemManage.RoleList>({
-   // url: '/api/role/list',
-   url: '/api/Role/GetRolePage',
+    // url: '/api/role/list',
+    url: '/api/Role/GetRolePage',
     params
   })
 }
 
 // 获取菜单列表
 export function fetchGetMenuList() {
-  var item = request.get<AppRouteRecord[]>({
-   // url: '/api/v3/system/menus/simple'
-      url: 'api/Menu/GetMenuTree'
-  });
+  const item = request.get<AppRouteRecord[]>({
+    // url: '/api/v3/system/menus/simple'
+    url: '/api/Menu/GetMenuTree'
+  })
   return item
 }
 
 //新增路由信息
-export function fetchSetMenu(params:any) {
-  var item = request.post<AppRouteRecord>({
+export function fetchSetMenu(params: any) {
+  const item = request.post<AppRouteRecord>({
     url: '/api/Menu/AddMenu',
     params: params
     // showSuccessMessage: true // 显示成功消息
     // showErrorMessage: false // 不显示错误消息
-  });
+  })
 
-  return item;
+  return item
 }
 
 //新增路由信息
-export function fetchEditMenu(params:any) {
-  var item = request.post<AppRouteRecord>({
+export function fetchEditMenu(params: any) {
+  const item = request.post<AppRouteRecord>({
     url: '/api/Menu/UpdateMenu',
     params: params
     // showSuccessMessage: true // 显示成功消息
     // showErrorMessage: false // 不显示错误消息
-  });
+  })
 
-  return item;
+  return item
 }
-
 
 // 新增商品数据
 export function fetchDeleteMenu(menuId: number | string) {
@@ -89,7 +88,11 @@ export function getRolePermission(roleId: number | string) {
   })
 }
 
-export function saveRolePermission(params: { roleId: number | string; roleCode?: string; permissionKeys: string[] }) {
+export function saveRolePermission(params: {
+  roleId: number | string
+  roleCode?: string
+  permissionKeys: string[]
+}) {
   return request.post({
     url: '/api/Role/SaveRolePermission',
     params
@@ -97,7 +100,7 @@ export function saveRolePermission(params: { roleId: number | string; roleCode?:
 }
 
 export function createBusinessBill(params: any) {
-  var item =request.post({
+  const item = request.post({
     url: '/api/BusinessBill/Create',
     params: params
   })
@@ -191,7 +194,9 @@ export function importProducts(params: Api.SystemManage.ProductSaveParams[]) {
 }
 
 // 获取登录账户/用户权限分页列表
-export function fetchGetAccountPermissionPage(params: Api.SystemManage.AccountPermissionSearchParams) {
+export function fetchGetAccountPermissionPage(
+  params: Api.SystemManage.AccountPermissionSearchParams
+) {
   return request.get<Api.SystemManage.AccountPermissionList>({
     url: '/api/UserInfo/GetUserPage',
     params
@@ -237,5 +242,3 @@ export function saveAccountPermission(params: Api.SystemManage.AccountPermission
     params
   })
 }
-
-

@@ -17,6 +17,9 @@ export interface HourlyBinding {
 }
 
 export interface HourlyProcess {
+  instanceId?: string
+  creationMode?: '' | 'New' | 'Restore'
+  activeSince?: string | null
   code: string
   name: string
   rowCode: string
@@ -29,6 +32,17 @@ export interface HourlyProcess {
   targets: (number | null)[]
 }
 
+export interface HourlyRemovedProcess {
+  instanceId: string
+  lineCode: string
+  code: string
+  name: string
+  removedAt: string | null
+  canRestore: boolean
+  reason: string
+  definition: HourlyProcess | null
+}
+
 export interface HourlyLine {
   code: string
   name: string
@@ -37,7 +51,25 @@ export interface HourlyLine {
   processes: HourlyProcess[]
 }
 
+export interface HourlyShiftPlan {
+  effectiveAt: string
+  dayStart: string
+  nightStart: string
+  dayTargets: Record<string, (number | null)[]>
+  nightTargets: Record<string, (number | null)[]>
+}
+export interface HourlyBoardLayout {
+  mode: 'Single' | 'Compare' | 'Rotate'
+  rotationSeconds: number
+  groups: string[][]
+}
 export interface HourlyBoard {
+  removedLines?: { definition: HourlyLine; removedAt: string; removedBy: string }[]
+  layout?: HourlyBoardLayout | null
+  cancelShiftEffectiveAt?: string | null
+  cancelledShifts?: { plan: HourlyShiftPlan; cancelledAt: string; cancelledBy: string }[]
+  shiftHistory?: HourlyShiftPlan[]
+  shiftChange?: HourlyShiftPlan | null
   code: string
   name: string
   version: number
@@ -90,6 +122,10 @@ export interface HourlyLineRuntime {
 }
 
 export interface HourlyRuntime {
+  layout?: HourlyBoardLayout | null
+  shiftName: string
+  shiftStart: string
+  shiftEnd: string
   code: string
   name: string
   version: number
@@ -132,6 +168,11 @@ export interface HourlyDiagnostic {
 
 const base = '/api/hourly-production'
 export const hourlyApi = {
+  removedProcesses: (code: string, lineCode: string) =>
+    request.get<HourlyRemovedProcess[]>({
+      url: `${base}/definitions/${encodeURIComponent(code)}/removed-processes`,
+      params: { lineCode }
+    }),
   retryDispatch: (id: number) =>
     request.post({ url: `${base}/dispatches/${id}/retry`, data: { confirm: true } }),
   diagnostics: () => request.get<HourlyDiagnostic[]>({ url: `${base}/diagnostics` }),
@@ -143,10 +184,10 @@ export const hourlyApi = {
   },
   definitions: () => request.get<HourlyBoard[]>({ url: `${base}/definitions` }),
   save: (data: HourlyBoard) => request.post<HourlyBoard>({ url: `${base}/definitions`, data }),
-  runtime: (code: string, publicRead = false) =>
+  runtime: (code: string, publicRead = false, previous = false) =>
     request.get<HourlyRuntime>({
       url: `${base}${publicRead ? '/public' : ''}/runtime`,
-      params: { code }
+      params: { code, previous }
     }),
   sources: (kind: string, keyword = '') =>
     request.get<
@@ -168,6 +209,8 @@ export const hourlyApi = {
 
 export function createProcess(index: number, name = '新工序'): HourlyProcess {
   return {
+    instanceId: '',
+    creationMode: 'New',
     code: `P${index}`,
     rowCode: `P${index}`,
     name,

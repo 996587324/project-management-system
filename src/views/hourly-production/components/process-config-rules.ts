@@ -1,5 +1,26 @@
 import type { HourlyBoard, HourlyLine, HourlyProcess } from '@/api/hourly-production'
 
+export function removeHourlyLine(board: HourlyBoard, line: HourlyLine) {
+  const index = board.lines.indexOf(line)
+  if (index < 0 || board.lines.length <= 1) return false
+  board.lines.splice(index, 1)
+  if (board.layout) {
+    board.layout.groups = board.layout.groups.filter((group) => !group.includes(line.code))
+    if (!board.layout.groups.length)
+      board.layout = { mode: 'Single', rotationSeconds: 15, groups: [[board.lines[0].code]] }
+  }
+  const hadSelectedLines = board.push.lineCodes.length > 0
+  board.push.lineCodes = board.push.lineCodes.filter((code) => code !== line.code)
+  if (hadSelectedLines && !board.push.lineCodes.length) board.push.enabled = false
+  if (board.shiftChange) {
+    for (const targets of [board.shiftChange.dayTargets, board.shiftChange.nightTargets]) {
+      for (const key of Object.keys(targets))
+        if (key === line.code || key.startsWith(line.code + '/')) delete targets[key]
+    }
+  }
+  return true
+}
+
 export function removeHourlyProcess(line: HourlyLine, process: HourlyProcess) {
   const index = line.processes.indexOf(process)
   if (index < 0 || line.processes.length <= 1) return false

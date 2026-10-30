@@ -3,10 +3,12 @@
     <template #header
       ><div class="binding-header"
         ><strong>数据绑定 {{ index + 1 }}</strong
-        ><el-button type="danger" text @click="emit('remove')">移除绑定</el-button></div
+        ><el-button type="danger" text :disabled="disabled" @click="emit('remove')"
+          >移除绑定</el-button
+        ></div
       ></template
     >
-    <el-form label-width="115px">
+    <el-form label-width="115px" :disabled="disabled">
       <el-form-item label="数据接入"
         ><el-radio-group v-model="binding.kind" @change="changeKind"
           ><el-radio-button value="Realtime">实时数据源</el-radio-button
@@ -15,11 +17,14 @@
       >
       <el-form-item label="设备 / 数据源"
         ><SourceTreeSelect
+          v-if="!disabled"
           :model-value="binding"
           :kind="binding.kind"
           purpose="hourly"
+          :disabled="disabled"
           @change="selectSource"
         />
+        <el-input v-else :model-value="`${binding.sourceKey} / ${binding.deviceKey}`" disabled />
       </el-form-item>
       <div class="binding-grid">
         <el-form-item v-if="binding.kind === 'Edge'" label="订阅设备编码">
@@ -70,7 +75,7 @@
   import type { CatalogDevice } from '@/api/source-catalog'
   import { hourlyApi, type HourlyBinding } from '@/api/hourly-production'
   const binding = defineModel<HourlyBinding>({ required: true })
-  defineProps<{ index: number }>()
+  defineProps<{ index: number; disabled?: boolean }>()
   const emit = defineEmits<{ remove: [] }>()
   const fields = ref<{ sourcePath: string; fieldName: string }[]>([])
   let fieldRevision = 0

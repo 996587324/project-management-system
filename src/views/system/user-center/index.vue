@@ -46,6 +46,12 @@
           </div>
 
           <div class="mt-10">
+            <ElButton
+              v-if="userInfo.permissionKeys?.includes('WorkTasksKeys')"
+              class="mb-3"
+              @click="$router.push('/work-tasks/keys')"
+              >个人 MCP 连接</ElButton
+            >
             <h3 class="text-sm font-medium">{{ $t('systemPages.userCenter.tags') }}</h3>
             <div class="flex flex-wrap justify-center mt-3.5">
               <div
@@ -381,7 +387,7 @@
       ElMessage.success(t('systemPages.userCenter.changeSuccess'))
       isEditPwd.value = false
       resetPwdForm()
-    } catch (error) {
+    } catch {
       ElMessage.error(t('systemPages.userCenter.changeFailed'))
     } finally {
       savingPwd.value = false

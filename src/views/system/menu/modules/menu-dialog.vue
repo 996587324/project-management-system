@@ -6,6 +6,9 @@
     width="860px"
     align-center
     class="menu-dialog"
+    :close-on-click-modal="!saving"
+    :close-on-press-escape="!saving"
+    :show-close="!saving"
     @closed="handleClosed"
   >
     <ArtForm
@@ -59,8 +62,8 @@
 
     <template #footer>
       <span class="dialog-footer">
-        <ElButton @click="handleCancel">取 消</ElButton>
-        <ElButton type="primary" @click="handleSubmit">确 定</ElButton>
+        <ElButton :disabled="saving" @click="handleCancel">取 消</ElButton>
+        <ElButton type="primary" :loading="saving" @click="handleSubmit">确 定</ElButton>
       </span>
     </template>
   </ElDialog>
@@ -110,6 +113,7 @@
     action: 'add' | 'edit'
     lockType?: boolean
     menus?: AppRouteRecord[]
+    saving?: boolean
   }
 
   interface Emits {
@@ -384,9 +388,8 @@
     try {
       await formRef.value.validate()
       emit('submit', { ...form })
-      // const list   = await fetchSetMenu(form);
-      // ElMessage.success(`${isEdit.value ? '编辑' : '新增'}成功`)
-      handleCancel()
+      // 新增路由等待服务端确认；失败时保留表单，便于修正后重试。
+      if (form.menuType !== 'menu' || form.action !== 'add') handleCancel()
     } catch {
       ElMessage.error('表单校验失败，请检查输入')
     }

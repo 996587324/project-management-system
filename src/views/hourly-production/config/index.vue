@@ -46,6 +46,7 @@
       <el-tab-pane label="班次与小时目标" name="targets"
         ><TargetConfig v-model="form"
       /></el-tab-pane>
+      <el-tab-pane label="展示布局" name="layout"><LayoutConfig v-model="form" /></el-tab-pane>
       <el-tab-pane label="AI建议" name="ai"
         ><el-form label-width="160px"
           ><el-form-item label="AI运行建议"><el-switch v-model="form.aiEnabled" /></el-form-item
@@ -55,7 +56,7 @@
               :min="1"
               :max="120" /></el-form-item></el-form
         ><el-alert type="info" :closable="false"
-          >复用模型平台中“生产看板Agent”的模型绑定。后台独立分析真实小时数据、返工及双线差异；页面只读缓存，模型失败隐藏内容，不阻塞统计或页面。</el-alert
+          >复用模型平台中“生产看板Agent”的模型绑定。后台独立分析真实小时数据、返工及线体差异；页面只读缓存，模型失败隐藏内容，不阻塞统计或页面。</el-alert
         ></el-tab-pane
       >
       <el-tab-pane label="小时推送" name="push" lazy><PushConfig v-model="form" /></el-tab-pane>
@@ -73,6 +74,7 @@
   import { createBoard, hourlyApi, type HourlyBoard } from '@/api/hourly-production'
   import ProcessConfig from '../components/ProcessConfig.vue'
   import TargetConfig from '../components/TargetConfig.vue'
+  import LayoutConfig from '../components/LayoutConfig.vue'
   import PushConfig from '../components/PushConfig.vue'
   import ReportRecords from '../components/ReportRecords.vue'
   import { hourlyConfigIssue } from '../components/process-config-rules'
@@ -112,6 +114,12 @@
     copy.version = 0
     copy.published = false
     copy.push.enabled = false
+    for (const line of copy.lines)
+      for (const process of line.processes) {
+        process.instanceId = ''
+        process.creationMode = 'New'
+        process.activeSince = null
+      }
     form.value = copy
     selectedCode.value = ''
     tab.value = 'basic'

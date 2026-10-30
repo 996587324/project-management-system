@@ -8,12 +8,14 @@ import { edgeGatewayRoutes } from './edge-gateway'
 import { productionDashboardRoutes } from './production-dashboard'
 import { pdaRoutes } from './pda'
 import { weChatClawBotRoutes } from './wechat-clawbot'
+import { workTaskRoutes } from './work-tasks'
 
 /**
  * 导出所有模块化路由
  */
 export const routeModules: AppRouteRecord[] = [
   dashboardRoutes,
+  workTaskRoutes,
   productionDashboardRoutes,
   edgeGatewayRoutes,
   agentRoutes,
